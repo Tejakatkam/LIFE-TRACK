@@ -1,6 +1,5 @@
-export const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Jost:wght@300;400;500;600&display=swap');`;
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Jost:wght@300;400;500;600&display=swap');
 
-export const css = `
 *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
 body { font-family:'Jost',sans-serif; }
 
@@ -244,4 +243,3 @@ body { font-family:'Jost',sans-serif; }
 .saved-flash { font-size:12px; color:var(--green); letter-spacing:0.06em; animation:fadeIn 0.3s ease; }
 .logout-btn { padding:9px 18px; background:none; border:1px solid var(--border); border-radius:9px; font-family:'Jost',sans-serif; font-size:13px; color:var(--text2); cursor:pointer; margin-top:18px; transition:all 0.2s; }
 .logout-btn:hover { border-color:var(--red); color:var(--red); }
-`;
