@@ -1,23 +1,16 @@
-import React, { useEffect } from "react";
-import { apiRequest } from "../../api";
-import { todayKey, fmtDate, stepsBurned } from "../../utils/helpers";
+import React, { useState, useEffect } from "react";
+import { apiRequest } from "../../utils/api";
+import { todayKey, dateOffset, fmtDate, stepsBurned } from "../../utils/helpers";
 
-export default function FoodTab({
-  currentUser,
-  viewDay,
-  dayOffset,
-  setDayOffset,
-  foodLog,
-  setFoodLog,
-  foodSteps,
-  setFoodSteps,
-  fName,
-  setFName,
-  fGrams,
-  setFGrams,
-  fCal,
-  setFCal,
-}) {
+export default function FoodTab({ currentUser }) {
+  const [dayOffset, setDayOffset] = useState(0);
+  const [foodLog, setFoodLog] = useState([]);
+  const [foodSteps, setFoodSteps] = useState(0);
+  const [fName, setFName] = useState("");
+  const [fGrams, setFGrams] = useState("");
+  const [fCal, setFCal] = useState("");
+
+  const viewDay = dateOffset(dayOffset);
   const isToday = viewDay === todayKey();
 
   // ✅ FETCH FOOD

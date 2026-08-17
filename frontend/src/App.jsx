@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import Login from "./components/auth/Login";
 import Register from "./components/auth/Register";
 import Header from "./components/layout/Header";
+import Navigation from "./components/layout/Navigation";
 
 import FoodTab from "./components/food/FoodTab";
 import RemindersTab from "./components/reminders/RemindersTab";
@@ -41,6 +42,7 @@ export default function App() {
         <Login
           onLogin={(user) => {
             setCurrentUser(user);
+            setProfile(user);
             setScreen("app");
           }}
           goToRegister={() => setScreen("register")}
@@ -53,6 +55,7 @@ export default function App() {
         <Register
           onRegister={(user) => {
             setCurrentUser(user);
+            setProfile(user);
             setScreen("app");
           }}
           goToLogin={() => setScreen("login")}
@@ -65,6 +68,7 @@ export default function App() {
   return (
     <div className="app">
       <Header activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Navigation tab={activeTab} setTab={setActiveTab} />
 
       <div className="content">
         {activeTab === "food" && <FoodTab currentUser={currentUser} />}

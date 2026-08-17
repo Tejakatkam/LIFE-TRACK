@@ -1,6 +1,12 @@
 import React from "react";
 
-export default function Header({ dark, setDark, tab, setTab }) {
+export default function Header({ activeTab, setActiveTab }) {
+  const [dark, setDark] = React.useState(false);
+
+  React.useEffect(() => {
+    document.documentElement.setAttribute("data-dark", dark);
+  }, [dark]);
+
   return (
     <div className="header">
       <div className="header-logo">
@@ -17,8 +23,8 @@ export default function Header({ dark, setDark, tab, setTab }) {
         </button>
 
         <button
-          className={`icon-btn${tab === "profile" ? " active" : ""}`}
-          onClick={() => setTab("profile")}
+          className={`icon-btn${activeTab === "profile" ? " active" : ""}`}
+          onClick={() => setActiveTab("profile")}
           title="Profile"
           style={{ fontSize: 18 }}
         >
