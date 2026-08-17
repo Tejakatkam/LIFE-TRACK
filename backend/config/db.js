@@ -20,13 +20,16 @@ module.exports = {
     let i = 1;
     // Replace ? with $1, $2, etc.
     const pgSql = sql.replace(/\?/g, () => `$${i++}`);
-    const result = await pool.query(pgSql, params);
+    // pg throws if parameters are undefined, so map them to null
+    const safeParams = params.map(p => p === undefined ? null : p);
+    const result = await pool.query(pgSql, safeParams);
     return [result.rows, result.fields];
   },
   execute: async (sql, params = []) => {
     let i = 1;
     const pgSql = sql.replace(/\?/g, () => `$${i++}`);
-    const result = await pool.query(pgSql, params);
+    const safeParams = params.map(p => p === undefined ? null : p);
+    const result = await pool.query(pgSql, safeParams);
     return [result.rows, result.fields];
   }
 };
