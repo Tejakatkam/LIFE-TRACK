@@ -9,7 +9,6 @@ import WeeklyTasksTab from "./components/weekly/WeeklyTasksTab";
 import ProfileTab from "./components/profile/ProfileTab";
 
 import { apiRequest } from "./utils/api";
-import "./App.css";
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
