@@ -43,7 +43,7 @@ export default function Login({ onLogin, goToRegister }) {
           <div className="onboard-sub">your personal wellness companion</div>
 
           <div className="field">
-            <label>Username</label>
+            <label>Username or Email</label>
             <input
               className="inp"
               value={username}

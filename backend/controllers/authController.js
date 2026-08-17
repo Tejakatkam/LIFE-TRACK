@@ -48,10 +48,10 @@ const registerUser = async (req, res) => {
 const loginUser = async (req, res) => {
   const { username, password } = req.body;
 
-  const sql = `SELECT * FROM users WHERE username = ?`;
+  const sql = `SELECT * FROM users WHERE username = ? OR email = ?`;
 
   try {
-    const [results] = await db.query(sql, [username]);
+    const [results] = await db.query(sql, [username, username]);
 
     if (results.length === 0) {
       return res.status(400).json({ message: "Invalid credentials" });

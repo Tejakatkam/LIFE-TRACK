@@ -3,6 +3,7 @@ import { apiRequest } from "../../utils/api";
 
 export default function Register({ onRegister, goToLogin }) {
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPass, setConfirmPass] = useState("");
   const [error, setError] = useState("");
@@ -12,7 +13,7 @@ export default function Register({ onRegister, goToLogin }) {
     try {
       setError("");
 
-      if (!username || !password || !confirmPass) {
+      if (!username || !email || !password || !confirmPass) {
         setError("Please fill all fields");
         return;
       }
@@ -26,6 +27,7 @@ export default function Register({ onRegister, goToLogin }) {
 
       const data = await apiRequest("/api/auth/register", "POST", {
         username,
+        email,
         password,
       });
 
@@ -54,6 +56,16 @@ export default function Register({ onRegister, goToLogin }) {
               className="inp"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+            />
+          </div>
+
+          <div className="field">
+            <label>Email</label>
+            <input
+              className="inp"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
           </div>
 
