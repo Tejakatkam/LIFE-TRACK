@@ -5,11 +5,9 @@ export default function Navigation({ tab, setTab }) {
     <nav className="nav">
       {[
         ["food", "Food"],
-        ["wishlist", "Wishlist"],
-        ["schedule", "Schedule"],
-        ["tracking", "Tracking"],
         ["reminders", "Reminders"],
         ["weekly", "Weekly"],
+        ["profile", "Profile"]
       ].map(([value, label]) => (
         <button
           key={value}
