@@ -59,3 +59,26 @@ exports.deleteReminder = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+exports.syncReminders = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { reminders } = req.body;
+
+    // Delete existing
+    await db.query("DELETE FROM reminders WHERE user_id = ?", [userId]);
+
+    // Insert new
+    for (let r of reminders) {
+      await db.query(
+        "INSERT INTO reminders (user_id, habit_id, habit_name, icon, time, label) VALUES (?, ?, ?, ?, ?, ?)",
+        [userId, r.habit_id, r.habit_name, r.icon, r.time, r.label]
+      );
+    }
+
+    res.json({ message: "Synced" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};

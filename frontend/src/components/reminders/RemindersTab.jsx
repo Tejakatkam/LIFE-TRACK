@@ -35,9 +35,39 @@ export default function RemindersTab({ currentUser }) {
     }
   }, [userId]);
 
-  const save = (updated) => {
+  const save = async (updated) => {
     setReminders(updated);
     lsSet(`reminders_${userId}`, updated);
+    
+    // Sync to backend so email scheduler works
+    try {
+      const BASE_URL = import.meta.env.VITE_API_URL;
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      // Collect all flat timers
+      const allTimers = [];
+      updated.forEach(r => {
+        (r.timers || []).forEach(t => {
+          allTimers.push({
+            habit_id: r.id,
+            habit_name: r.habitName,
+            icon: r.icon,
+            time: t.time,
+            label: t.label || ""
+          });
+        });
+      });
+
+      // We send a batch replace to a new sync route, or just loop post.
+      // Since backend only has add/delete, we can just fetch all, delete all, and re-add.
+      // But for now, let's just let the user know they need a sync route, or implement one quickly.
+      await fetch(`${BASE_URL}/api/reminders/sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ reminders: allTimers })
+      });
+    } catch(e) { console.error("Sync error", e); }
   };
 
   const addTimer = (habitId) => {
