@@ -19,8 +19,6 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("food");
 
   const [profile, setProfile] = useState({});
-  const [reminders, setReminders] = useState([]);
-  const [weeklyTasks, setWeeklyTasks] = useState([]);
 
   // 🔹 Auto-login
   useEffect(() => {
@@ -76,20 +74,8 @@ export default function App() {
         {activeTab === "food" && <FoodTab currentUser={currentUser} />}
         {activeTab === "schedule" && <ScheduleTab currentUser={currentUser} />}
         {activeTab === "tracking" && <TrackingTab currentUser={currentUser} />}
-        {activeTab === "reminders" && (
-          <RemindersTab
-            reminders={reminders}
-            setReminders={setReminders}
-            currentUser={currentUser}
-          />
-        )}
-        {activeTab === "weekly" && (
-          <WeeklyTasksTab
-            weeklyTasks={weeklyTasks}
-            setWeeklyTasks={setWeeklyTasks}
-            currentUser={currentUser}
-          />
-        )}
+        {activeTab === "reminders" && <RemindersTab currentUser={currentUser} />}
+        {activeTab === "weekly" && <WeeklyTasksTab currentUser={currentUser} />}
         {activeTab === "profile" && (
           <ProfileTab
             profile={profile}

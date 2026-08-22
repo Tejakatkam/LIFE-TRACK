@@ -1,138 +1,93 @@
 import React, { useState, useEffect } from "react";
-import { apiRequest } from "../../api";
 import { fmt12, currentDayName } from "../../utils/helpers";
 import NotifBanner from "../reminders/NotifBanner";
 
-const DAYS = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-];
+function lsGet(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 export default function WeeklyTasksTab({ currentUser }) {
+  const userId = currentUser?.id || currentUser?.username || "user";
   const [weeklyTasks, setWeeklyTasks] = useState([]);
   const [taskName, setTaskName] = useState("");
   const [taskDay, setTaskDay] = useState("Monday");
   const [taskTime, setTaskTime] = useState("09:00");
-
   const todayDay = currentDayName();
 
   useEffect(() => {
-    if (!currentUser) return;
+    const stored = lsGet(`weekly_${userId}`);
+    setWeeklyTasks(stored || []);
+  }, [userId]);
 
-    const fetchTasks = async () => {
-      const data = await apiRequest("/weekly");
-      setWeeklyTasks(data || []);
-    };
-
-    fetchTasks();
-  }, [currentUser]);
-
-  const refresh = async () => {
-    const data = await apiRequest("/weekly");
-    setWeeklyTasks(data || []);
+  const save = (updated) => {
+    setWeeklyTasks(updated);
+    lsSet(`weekly_${userId}`, updated);
   };
 
-  const addTask = async () => {
+  const addTask = () => {
     if (!taskName.trim()) return;
-
-    await apiRequest("/weekly", "POST", {
-      name: taskName.trim(),
-      day: taskDay,
-      reminder_time: taskTime,
-    });
-
-    setTaskName("");
-    setTaskDay("Monday");
-    setTaskTime("09:00");
-
-    refresh();
+    save([...weeklyTasks, { id: Date.now(), name: taskName.trim(), day: taskDay, reminderTime: taskTime, doneThisWeek: false }]);
+    setTaskName(""); setTaskDay("Monday"); setTaskTime("09:00");
   };
 
-  const toggleDone = async (id) => {
-    await apiRequest(`/weekly/${id}`, "PUT");
-    refresh();
-  };
+  const toggleDone = (id) => save(weeklyTasks.map(t => t.id === id ? { ...t, doneThisWeek: !t.doneThisWeek } : t));
+  const delTask = (id) => save(weeklyTasks.filter(t => t.id !== id));
 
-  const delTask = async (id) => {
-    await apiRequest(`/weekly/${id}`, "DELETE");
-    refresh();
-  };
-
-  const grouped = DAYS.reduce((acc, d) => {
-    acc[d] = weeklyTasks.filter((t) => t.day === d);
-    return acc;
-  }, {});
+  const grouped = DAYS.reduce((acc, d) => { acc[d] = weeklyTasks.filter(t => t.day === d); return acc; }, {});
 
   return (
     <>
       <NotifBanner />
-
       <div className="section-title">Add Weekly Task</div>
-
       <div className="add-weekly-form">
-        <input
-          className="inp"
-          placeholder="Task name"
-          value={taskName}
-          onChange={(e) => setTaskName(e.target.value)}
-        />
-
-        <input
-          className="inp"
-          type="time"
-          value={taskTime}
-          onChange={(e) => setTaskTime(e.target.value)}
-        />
-
-        <div className="day-selector">
-          {DAYS.map((d) => (
-            <div
-              key={d}
-              className={`day-chip${taskDay === d ? " sel" : ""}`}
-              onClick={() => setTaskDay(d)}
-            >
-              {d.slice(0, 3)}
-            </div>
-          ))}
+        <div className="form-row" style={{ marginBottom: 12 }}>
+          <div className="form-field" style={{ flex: 2, minWidth: 140 }}>
+            <label>Task name</label>
+            <input className="inp" placeholder="e.g. Oil hair, Iron clothes..." value={taskName}
+              onChange={e => setTaskName(e.target.value)} onKeyDown={e => e.key === "Enter" && addTask()} />
+          </div>
+          <div className="form-field" style={{ flex: 1, minWidth: 90 }}>
+            <label>Remind at</label>
+            <input className="inp" type="time" value={taskTime} onChange={e => setTaskTime(e.target.value)} />
+          </div>
         </div>
-
-        <button className="add-btn" onClick={addTask}>
-          + Add Task
-        </button>
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text2)", marginBottom: 8 }}>Day of the week</div>
+          <div className="day-selector">
+            {DAYS.map(d => (
+              <div key={d} className={`day-chip${taskDay === d ? " sel" : ""}`} onClick={() => setTaskDay(d)}>{d.slice(0, 3)}</div>
+            ))}
+          </div>
+        </div>
+        <button className="add-btn" style={{ width: "100%" }} onClick={addTask}>+ Add Task</button>
       </div>
 
-      {DAYS.map((day) => {
+      {weeklyTasks.length === 0 && <div className="empty">No weekly tasks yet</div>}
+
+      {DAYS.map(day => {
         const tasks = grouped[day];
         if (!tasks.length) return null;
-
         const isToday = day === todayDay;
-
         return (
-          <div key={day}>
-            <div className="today-section-label">
-              {day} {isToday && " (Today)"}
+          <div key={day} style={{ marginBottom: 20 }}>
+            <div className="today-section-label" style={{ color: isToday ? "var(--accent)" : "var(--text2)" }}>
+              {day}
+              {isToday && <span style={{ fontSize: 10, padding: "2px 8px", background: "var(--accent)", color: "var(--bg)", borderRadius: 10 }}>Today</span>}
             </div>
-
-            {tasks.map((task) => (
+            {tasks.map(task => (
               <div key={task.id} className="weekly-task">
-                <div
-                  className={`task-check${task.done_this_week ? " done" : ""}`}
-                  onClick={() => toggleDone(task.id)}
-                >
-                  {task.done_this_week ? "✓" : ""}
+                <div className={`task-check${task.doneThisWeek ? " done" : ""}`} onClick={() => toggleDone(task.id)}>
+                  {task.doneThisWeek ? "✓" : ""}
                 </div>
-
-                <div>
-                  <div>{task.name}</div>
-                  <div>reminder {fmt12(task.reminder_time)}</div>
+                <div className="weekly-task-info">
+                  <div className={`weekly-task-name${task.doneThisWeek ? " struck" : ""}`}>{task.name}</div>
+                  <div className="weekly-task-meta">
+                    <span className={`day-badge${isToday ? " today-badge" : ""}`}>{day.slice(0, 3)}</span>
+                    reminder {fmt12(task.reminderTime)}
+                  </div>
                 </div>
-
-                <button onClick={() => delTask(task.id)}>×</button>
+                <button className="del-btn" onClick={() => delTask(task.id)}>×</button>
               </div>
             ))}
           </div>
