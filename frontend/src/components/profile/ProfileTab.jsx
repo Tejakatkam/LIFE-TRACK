@@ -179,7 +179,26 @@ export default function ProfileTab({ profile, onSave, onLogout }) {
           ))}
         </div>
 
-        <button className="logout-btn" onClick={onLogout}>Sign out</button>
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button className="logout-btn" onClick={onLogout}>
+            Log Out
+          </button>
+          
+          <button className="logout-btn" style={{ borderColor: "var(--red)", color: "var(--red)" }} onClick={async () => {
+            if (window.confirm("Are you sure you want to completely wipe the production database? This will delete all users.")) {
+              try {
+                const BASE_URL = import.meta.env.VITE_API_URL;
+                await fetch(`${BASE_URL}/api/auth/clear-db-temp`);
+                alert("Database cleared! Logging you out.");
+                onLogout();
+              } catch (e) {
+                alert("Failed to clear DB");
+              }
+            }
+          }}>
+            Clear Remote Database
+          </button>
+        </div>
       </div>
     </>
   );

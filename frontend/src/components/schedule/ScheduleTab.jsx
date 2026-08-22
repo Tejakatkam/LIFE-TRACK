@@ -32,26 +32,34 @@ function AddHabitPanel({ onAdd }) {
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
   const [icon, setIcon] = useState("◆");
+  const [apiKey, setApiKey] = useState(lsGet("gemini_api_key") || "");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiErr, setAiErr] = useState("");
 
   const generateDesc = async () => {
     if (!name.trim()) { setAiErr("Enter a habit name first."); return; }
+    if (!apiKey.trim()) { setAiErr("Enter your Gemini API key below."); return; }
+    
+    lsSet("gemini_api_key", apiKey.trim());
     setAiLoading(true); setAiErr("");
+    
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 80,
-          messages: [{ role: "user", content: `Write a short, motivating description for a daily habit called "${name.trim()}". Max 10 words. No quotes. Just the description.` }]
+          contents: [{
+            parts: [{ text: `Write a short, motivating description for a daily habit called "${name.trim()}". Max 10 words. No quotes. Just the description.` }]
+          }],
+          generationConfig: { maxOutputTokens: 80 }
         })
       });
       const data = await res.json();
-      const text = (data.content || []).map(c => c.text || "").join("").trim();
-      setDesc(text || "");
-    } catch { setAiErr("Could not generate — please type your own."); }
+      if (data.error) throw new Error(data.error.message);
+      
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      setDesc(text.trim());
+    } catch(err) { setAiErr(err.message || "Could not generate — check API key."); }
     setAiLoading(false);
   };
 
@@ -87,6 +95,14 @@ function AddHabitPanel({ onAdd }) {
                 {aiLoading ? "…" : "✦"} {aiLoading ? "Thinking" : "AI"}
               </button>
             </div>
+            <input 
+              type="password" 
+              className="inp" 
+              placeholder="Enter Gemini API Key to use AI" 
+              value={apiKey} 
+              onChange={e => { setApiKey(e.target.value); lsSet("gemini_api_key", e.target.value); }} 
+              style={{ marginTop: 8, fontSize: 12, padding: "6px 10px" }} 
+            />
             {aiErr && <div style={{ fontSize: 11, color: "var(--red)", marginTop: 4 }}>{aiErr}</div>}
           </div>
           <button className="add-btn" style={{ width: "100%" }} onClick={handleAdd}>+ Add Habit</button>
