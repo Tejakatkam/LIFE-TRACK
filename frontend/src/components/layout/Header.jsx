@@ -2,10 +2,14 @@ import React from "react";
 import logo from "../../assets/logo.png";
 
 export default function Header({ activeTab, setActiveTab }) {
-  const [dark, setDark] = React.useState(false);
+  const [dark, setDark] = React.useState(() => {
+    const saved = localStorage.getItem("dark");
+    return saved !== null ? saved === "true" : true;
+  });
 
   React.useEffect(() => {
     document.documentElement.setAttribute("data-dark", dark);
+    localStorage.setItem("dark", String(dark));
   }, [dark]);
 
   return (

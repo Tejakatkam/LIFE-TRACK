@@ -10,6 +10,7 @@ import TrackingTab from "./components/tracking/TrackingTab";
 import RemindersTab from "./components/reminders/RemindersTab";
 import WeeklyTasksTab from "./components/weekly/WeeklyTasksTab";
 import ProfileTab from "./components/profile/ProfileTab";
+import useNotifCheck from "./hooks/useNotifiCheck";
 
 import { apiRequest } from "./utils/api";
 
@@ -20,8 +21,13 @@ export default function App() {
 
   const [profile, setProfile] = useState({});
 
+  useNotifCheck(currentUser);
+
   // 🔹 Auto-login
   useEffect(() => {
+    const savedDark = localStorage.getItem("dark");
+    document.documentElement.setAttribute("data-dark", savedDark !== null ? savedDark : "true");
+    
     const token = localStorage.getItem("token");
     if (!token) return;
     (async () => {

@@ -7,6 +7,12 @@ export default function useNotifCheck(currentUser) {
 
   useEffect(() => {
     if (!currentUser) return;
+    
+    // Request permission on login
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+    
     if (timerRef.current) clearInterval(timerRef.current);
 
     const userId = currentUser?.id || currentUser?.username || "user";
