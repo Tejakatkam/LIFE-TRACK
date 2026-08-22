@@ -5,6 +5,8 @@ import Header from "./components/layout/Header";
 import Navigation from "./components/layout/Navigation";
 
 import FoodTab from "./components/food/FoodTab";
+import ScheduleTab from "./components/schedule/ScheduleTab";
+import TrackingTab from "./components/tracking/TrackingTab";
 import RemindersTab from "./components/reminders/RemindersTab";
 import WeeklyTasksTab from "./components/weekly/WeeklyTasksTab";
 import ProfileTab from "./components/profile/ProfileTab";
@@ -72,6 +74,8 @@ export default function App() {
 
       <div className="content">
         {activeTab === "food" && <FoodTab currentUser={currentUser} />}
+        {activeTab === "schedule" && <ScheduleTab currentUser={currentUser} />}
+        {activeTab === "tracking" && <TrackingTab currentUser={currentUser} />}
         {activeTab === "reminders" && (
           <RemindersTab
             reminders={reminders}
@@ -89,7 +93,12 @@ export default function App() {
         {activeTab === "profile" && (
           <ProfileTab
             profile={profile}
-            setProfile={setProfile}
+            onSave={async (updated) => {
+              const updatedProfile = await apiRequest("/api/auth/profile", "PUT", updated);
+              const merged = { ...profile, ...updatedProfile };
+              setProfile(merged);
+              return merged;
+            }}
             onLogout={() => {
               localStorage.removeItem("token");
               setCurrentUser(null);

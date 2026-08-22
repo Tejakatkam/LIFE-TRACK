@@ -91,23 +91,44 @@ const loginUser = async (req, res) => {
   }
 };
 
-const getMe = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const sql = `SELECT id, username, email, phone, age, weight, height, gender, goal FROM users WHERE id = ?`;
-    const [results] = await db.query(sql, [userId]);
+const getMe = (req, res) => {
+  const sql = "SELECT id, username, email, phone, age, weight, height, gender, goal FROM users WHERE id = ?";
 
-    if (results.length === 0) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    res.json({
-      user: results[0]
+  db.query(sql, [req.user.id])
+    .then(([results]) => {
+      if (results.length === 0) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json({ user: results[0] });
+    })
+    .catch((err) => {
+      console.error("GetMe DB error:", err);
+      res.status(500).json({ message: "Database error" });
     });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+};
+
+const updateProfile = async (req, res) => {
+  const { age, weight, height, gender, goal, email, phone } = req.body;
+  const userId = req.user.id;
+
+  const sql = `
+    UPDATE users SET age=?, weight=?, height=?, gender=?, goal=?, email=?, phone=?
+    WHERE id=?
+  `;
+
+  try {
+    await db.query(sql, [age, weight, height, gender, goal, email, phone, userId]);
+    
+    // Return the updated profile
+    const sqlGet = "SELECT id, username, email, phone, age, weight, height, gender, goal FROM users WHERE id = ?";
+    const [results] = await db.query(sqlGet, [userId]);
+    
+    if (!results.length) return res.status(500).json({ message: "Error fetching updated profile" });
+    res.json(results[0]);
+  } catch (err) {
+    console.error("Update profile error:", err);
+    res.status(500).json({ message: "Failed to update profile" });
   }
 };
 
-module.exports = { registerUser, loginUser, getMe };
+module.exports = { registerUser, loginUser, getMe, updateProfile };

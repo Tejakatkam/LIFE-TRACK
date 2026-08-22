@@ -5,6 +5,8 @@ export default function Navigation({ tab, setTab }) {
     <nav className="nav">
       {[
         ["food", "Food"],
+        ["schedule", "Schedule"],
+        ["tracking", "Tracking"],
         ["reminders", "Reminders"],
         ["weekly", "Weekly"],
         ["profile", "Profile"]
