@@ -84,4 +84,36 @@ exports.getCalorieRecommendation = async (req, res) => {
   }
 };
 
+exports.getHabitDescription = async (req, res) => {
+  try {
+    const { habitName } = req.body;
+    if (!habitName) return res.status(400).json({ message: "Habit name is required" });
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.json({ description: "Build a consistent routine." });
+    }
+
+    const prompt = `Write a short, motivating description for a daily habit called "${habitName}". Max 10 words. No quotes. Just the description.`;
+
+    const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 80 }
+      })
+    });
+
+    const data = await aiRes.json();
+    if (data.error) throw new Error(data.error.message);
+
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    return res.json({ description: text.trim() });
+  } catch (err) {
+    console.error("Gemini AI habit error:", err.message);
+    res.json({ description: "Build a consistent routine." });
+  }
+};
+
 

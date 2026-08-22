@@ -32,34 +32,29 @@ function AddHabitPanel({ onAdd }) {
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
   const [icon, setIcon] = useState("◆");
-  const [apiKey, setApiKey] = useState(lsGet("gemini_api_key") || "");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiErr, setAiErr] = useState("");
 
   const generateDesc = async () => {
     if (!name.trim()) { setAiErr("Enter a habit name first."); return; }
-    if (!apiKey.trim()) { setAiErr("Enter your Gemini API key below."); return; }
     
-    lsSet("gemini_api_key", apiKey.trim());
     setAiLoading(true); setAiErr("");
     
     try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`, {
+      const BASE_URL = import.meta.env.VITE_API_URL;
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${BASE_URL}/api/user/habit-description`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{ text: `Write a short, motivating description for a daily habit called "${name.trim()}". Max 10 words. No quotes. Just the description.` }]
-          }],
-          generationConfig: { maxOutputTokens: 80 }
-        })
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ habitName: name.trim() })
       });
+      if (!res.ok) throw new Error("Failed to generate");
       const data = await res.json();
-      if (data.error) throw new Error(data.error.message);
-      
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      setDesc(text.trim());
-    } catch(err) { setAiErr(err.message || "Could not generate — check API key."); }
+      setDesc(data.description || "");
+    } catch(err) { setAiErr(err.message || "Could not generate description."); }
     setAiLoading(false);
   };
 
@@ -95,14 +90,6 @@ function AddHabitPanel({ onAdd }) {
                 {aiLoading ? "…" : "✦"} {aiLoading ? "Thinking" : "AI"}
               </button>
             </div>
-            <input 
-              type="password" 
-              className="inp" 
-              placeholder="Enter Gemini API Key to use AI" 
-              value={apiKey} 
-              onChange={e => { setApiKey(e.target.value); lsSet("gemini_api_key", e.target.value); }} 
-              style={{ marginTop: 8, fontSize: 12, padding: "6px 10px" }} 
-            />
             {aiErr && <div style={{ fontSize: 11, color: "var(--red)", marginTop: 4 }}>{aiErr}</div>}
           </div>
           <button className="add-btn" style={{ width: "100%" }} onClick={handleAdd}>+ Add Habit</button>
