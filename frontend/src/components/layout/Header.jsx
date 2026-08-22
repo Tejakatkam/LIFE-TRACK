@@ -1,4 +1,5 @@
 import React from "react";
+import logo from "../../assets/logo.png";
 
 export default function Header({ activeTab, setActiveTab }) {
   const [dark, setDark] = React.useState(false);
@@ -9,7 +10,8 @@ export default function Header({ activeTab, setActiveTab }) {
 
   return (
     <div className="header">
-      <div className="header-logo">
+      <div className="header-logo" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <img src={logo} alt="LifeTrack" style={{ width: '24px', height: '24px', borderRadius: '50%' }} />
         life<span>·</span>track
       </div>
 

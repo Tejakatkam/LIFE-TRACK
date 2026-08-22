@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { apiRequest } from "../../utils/api";
+import logo from "../../assets/logo.png";
 
 export default function Login({ onLogin, goToRegister }) {
   const [username, setUsername] = useState("");
@@ -39,12 +40,8 @@ export default function Login({ onLogin, goToRegister }) {
         <div className="onboard-card redesign-card">
           <div className="redesign-header">
             <div className="redesign-logo-group">
-              <div className="redesign-icon">
-                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" strokeWidth="1.5" fill="none">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <path d="M8 8h8M12 8v8"></path>
-                  <path d="M7 8h10"></path>
-                </svg>
+              <div className="redesign-icon" style={{ padding: 0, overflow: 'hidden' }}>
+                <img src={logo} alt="LifeTrack Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
               <div className="redesign-title">Life <span>·</span> Track</div>
             </div>
