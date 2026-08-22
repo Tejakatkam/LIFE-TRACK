@@ -58,7 +58,12 @@ export default function TrackingTab({ currentUser }) {
       const BASE_URL = import.meta.env.VITE_API_URL;
       const token = localStorage.getItem("token");
       const res = await fetch(`${BASE_URL}/api/reports/weekly`, {
-        headers: { "Authorization": `Bearer ${token}` }
+        method: "POST",
+        headers: { 
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ trackData, allHabits })
       });
       if (!res.ok) throw new Error("Failed to generate report");
       
@@ -68,10 +73,7 @@ export default function TrackingTab({ currentUser }) {
       a.download = `weekly_report_${weekDays[0].toISOString().split("T")[0]}.pdf`;
       a.click();
 
-      // Clear past week in UI to simulate sync completion
-      const nd = {};
-      Object.entries(trackData).forEach(([k, v]) => { if (k.startsWith(todayStr)) nd[k] = v; });
-      setTrackData(nd); lsSet(`track_${userId}`, nd);
+      // Rule #11: NO DATABASE RESET. NO HABIT RESET.
       alert("Weekly PDF Report downloaded.");
     } catch (err) {
       console.error(err);
@@ -114,7 +116,7 @@ export default function TrackingTab({ currentUser }) {
       ))}
 
       <button className="pdf-btn" onClick={generateReport}>
-        ↓ Download Weekly Report &amp; Reset
+        📥 Download Weekly Report
       </button>
     </>
   );

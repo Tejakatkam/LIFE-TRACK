@@ -4,6 +4,6 @@ const verifyToken = require("../middleware/authMiddleware");
 
 const { generateWeeklyReport } = require("../controllers/reportController");
 
-router.get("/weekly", verifyToken, generateWeeklyReport);
+router.post("/weekly", verifyToken, generateWeeklyReport);
 
 module.exports = router;
