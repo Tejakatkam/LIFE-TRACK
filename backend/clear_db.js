@@ -1,1 +1,0 @@
-﻿require('dotenv').config(); const db = require('./config/db'); async function clear() { try { await db.query('TRUNCATE TABLE users RESTART IDENTITY CASCADE;'); console.log('Database cleared!'); process.exit(0); } catch(e) { console.error(e); process.exit(1); } } clear();

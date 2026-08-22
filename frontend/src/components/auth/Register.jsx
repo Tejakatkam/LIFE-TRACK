@@ -26,7 +26,7 @@ export default function Register({ onRegister, goToLogin }) {
 
       setLoading(true);
 
-      const data = await apiRequest("/api/auth/register", "POST", {
+      await apiRequest("/api/auth/register", "POST", {
         username,
         email,
         password,
@@ -38,8 +38,14 @@ export default function Register({ onRegister, goToLogin }) {
         goal,
       });
 
-      localStorage.setItem("token", data.token);
-      onRegister(data.user);
+      // Automatically log them in after registration
+      const loginData = await apiRequest("/api/auth/login", "POST", {
+        username,
+        password,
+      });
+
+      localStorage.setItem("token", loginData.token);
+      onRegister(loginData.user);
     } catch (err) {
       setError(err.message || "Registration failed");
     } finally {
