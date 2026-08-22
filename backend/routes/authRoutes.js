@@ -1,11 +1,21 @@
 const express = require("express");
-const router = express.Router();
-const { registerUser, loginUser, getMe, updateProfile } = require("../controllers/authController");
+const {
+  sendVerification,
+  verifyRegistration,
+  loginUser,
+  getMe,
+  updateProfile,
+  deleteAccount
+} = require("../controllers/authController");
 const verifyToken = require("../middleware/authMiddleware");
 
-router.post("/register", registerUser);
+const router = express.Router();
+
+router.post("/send-verification", sendVerification);
+router.post("/verify-registration", verifyRegistration);
 router.post("/login", loginUser);
 router.get("/me", verifyToken, getMe);
 router.put("/profile", verifyToken, updateProfile);
+router.delete("/me", verifyToken, deleteAccount);
 
 module.exports = router;

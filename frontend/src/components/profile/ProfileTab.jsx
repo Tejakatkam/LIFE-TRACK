@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { calcBMI, calcBMR, calcTDEE, bmiCat } from "../../utils/helpers";
 import WeightTracker from "./WeightTracker";
+import { apiRequest } from "../../utils/api";
 
 export default function ProfileTab({ profile, onSave, onLogout }) {
   const [editing, setEditing] = useState(false);
@@ -61,6 +62,22 @@ export default function ProfileTab({ profile, onSave, onLogout }) {
       phone: profile.phone || "",
     });
     setEditing(false);
+  };
+
+  const handleDeleteAccount = async () => {
+    const confirmDelete = window.confirm("Are you sure you want to permanently delete your account? This action cannot be undone.");
+    if (!confirmDelete) return;
+
+    try {
+      setLoading(true);
+      await apiRequest("/api/auth/me", "DELETE");
+      onLogout(); // Log the user out to clear UI state
+    } catch (e) {
+      console.error("Delete account failed:", e);
+      alert("Failed to delete account. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const bmi = form.weight && form.height ? calcBMI(+form.weight, +form.height) : "—";
@@ -182,9 +199,20 @@ export default function ProfileTab({ profile, onSave, onLogout }) {
 
         <WeightTracker currentUser={profile} />
 
-        <button className="logout-btn" style={{ marginTop: 20 }} onClick={onLogout}>
-          Log Out
-        </button>
+        <div style={{ display: 'flex', gap: '10px', marginTop: 20 }}>
+          <button className="logout-btn" style={{ flex: 1 }} onClick={onLogout}>
+            Log Out
+          </button>
+          
+          <button 
+            className="logout-btn" 
+            style={{ flex: 1, backgroundColor: 'rgba(255, 60, 60, 0.1)', color: '#ff4444', borderColor: '#ff4444' }} 
+            onClick={handleDeleteAccount}
+            disabled={loading}
+          >
+            {loading ? "Deleting..." : "Delete Account"}
+          </button>
+        </div>
       </div>
     </>
   );
