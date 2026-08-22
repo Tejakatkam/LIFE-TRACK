@@ -39,7 +39,7 @@ const sendVerification = async (req, res) => {
     res.status(200).json({ message: "Verification code sent", otpToken });
   } catch (error) {
     console.error("sendVerification error:", error);
-    res.status(500).json({ message: "Failed to send verification code" });
+    res.status(500).json({ message: `Failed to send email: ${error.message}` });
   }
 };
 

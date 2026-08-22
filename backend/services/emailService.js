@@ -24,7 +24,7 @@ exports.sendEmail = async ({ to, subject, text, html, attachments = [] }) => {
     console.log("Email sent to", to);
   } catch (err) {
     console.error("Email error:", err);
-    throw new Error("Failed to send email");
+    throw err;
   }
 };
 
