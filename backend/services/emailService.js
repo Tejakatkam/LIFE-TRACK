@@ -1,4 +1,4 @@
-const nodemailer = require("nodemailer");
+﻿const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -8,18 +8,19 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-exports.sendEmail = async ({ to, subject, text, attachments = [] }) => {
+exports.sendEmail = async ({ to, subject, text, html, attachments = [] }) => {
   try {
     await transporter.sendMail({
       from: `"LifeTrack" <${process.env.EMAIL_USER}>`,
       to,
       subject,
       text,
+      html,
       attachments,
     });
-
     console.log("Email sent to", to);
   } catch (err) {
     console.error("Email error:", err);
   }
 };
+

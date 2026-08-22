@@ -2,6 +2,7 @@ const cron = require("node-cron");
 const db = require("../config/db");
 const { sendEmail } = require("./emailService");
 const { generateWeeklyPDF } = require("./reportGenerator");
+const { getReminderEmailHtml } = require("../utils/emailTemplate");
 
 cron.schedule("* * * * *", async () => {
   const now = new Date();
@@ -22,16 +23,12 @@ cron.schedule("* * * * *", async () => {
 
     for (let r of reminders) {
       if (!r.email) continue;
-
-      const message = `Reminder: ${r.habit_name}
-${r.label ? "Note: " + r.label : ""}
-
-Stay consistent 💪`;
-
+      const htmlContent = getReminderEmailHtml(r.habit_name, false);
       await sendEmail({
         to: r.email,
         subject: "LifeTrack Reminder",
-        text: message
+        text: `Reminder: ${r.habit_name} - Stay consistent!`,
+        html: htmlContent
       });
     }
 
@@ -46,16 +43,12 @@ Stay consistent 💪`;
 
     for (let t of weekly) {
       if (!t.email) continue;
-
-      const message = `Weekly Task: ${t.name}
-
-Today is ${today}.
-Don't forget to complete it ✔`;
-
+      const htmlContent = getReminderEmailHtml(t.name, true);
       await sendEmail({
         to: t.email,
         subject: "LifeTrack Weekly Task",
-        text: message
+        text: `Weekly Task: ${t.name} - Today is ${today}!`,
+        html: htmlContent
       });
     }
   } catch (err) {
