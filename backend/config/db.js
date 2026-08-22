@@ -14,6 +14,17 @@ const pool = new Pool({
 
 console.log("PostgreSQL database pool created");
 
+pool.query(`
+  CREATE TABLE IF NOT EXISTS weight_records (
+    id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    weight DECIMAL(5,2) NOT NULL,
+    frequency VARCHAR(10) NOT NULL,
+    record_date DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+`).catch(err => console.error("Error creating weight_records table:", err));
+
 module.exports = {
   // Compatibility wrapper to make `await db.query` return [rows] like mysql2/promise
   query: async (sql, params = []) => {

@@ -53,26 +53,30 @@ export default function TrackingTab({ currentUser }) {
   const visibleDefaults = DEFAULT_HABITS.filter(h => !removedHabits.includes(h.id));
   const allHabits = [...visibleDefaults, ...customHabits];
 
-  const generateReport = () => {
-    const lines = [
-      "WEEKLY HABIT TRACKER",
-      `${weekDays[0].toDateString()} — ${weekDays[6].toDateString()}`,
-      "=".repeat(48), ""
-    ];
-    for (const h of allHabits) {
-      const done = weekDays.filter(d => isTracked(h.id, d.toISOString().split("T")[0])).length;
-      lines.push(`${h.icon || "◆"} ${h.name}: ${done}/7 days`);
+  const generateReport = async () => {
+    try {
+      const BASE_URL = import.meta.env.VITE_API_URL;
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${BASE_URL}/api/reports/weekly`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Failed to generate report");
+      
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `weekly_report_${weekDays[0].toISOString().split("T")[0]}.pdf`;
+      a.click();
+
+      // Clear past week in UI to simulate sync completion
+      const nd = {};
+      Object.entries(trackData).forEach(([k, v]) => { if (k.startsWith(todayStr)) nd[k] = v; });
+      setTrackData(nd); lsSet(`track_${userId}`, nd);
+      alert("Weekly PDF Report downloaded.");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to download PDF report. Ensure you are connected to the backend.");
     }
-    const blob = new Blob([lines.join("\n")], { type: "text/plain" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `tracker-${weekDays[0].toISOString().split("T")[0]}.txt`;
-    a.click();
-    // Clear past week
-    const nd = {};
-    Object.entries(trackData).forEach(([k, v]) => { if (k.startsWith(todayStr)) nd[k] = v; });
-    setTrackData(nd); lsSet(`track_${userId}`, nd);
-    alert("Report downloaded. Past week data cleared.");
   };
 
   return (

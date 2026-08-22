@@ -12,6 +12,7 @@ const reminderRoutes = require("./routes/reminderRoutes");
 const weeklyRoutes = require("./routes/weeklyRoutes");
 const userRoutes = require("./routes/userRoutes");
 const reportRoutes = require("./routes/reportRoutes");
+const weightRoutes = require("./routes/weightRoutes");
 
 const app = express(); // ✅ Create app FIRST
 
@@ -34,6 +35,7 @@ app.use("/api/reminders", reminderRoutes);
 app.use("/api/weekly", weeklyRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/weight", weightRoutes);
 
 // Test Route
 app.get("/", (req, res) => {

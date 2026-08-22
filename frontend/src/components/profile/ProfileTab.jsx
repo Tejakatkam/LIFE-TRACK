@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { calcBMI, calcBMR, calcTDEE, bmiCat } from "../../utils/helpers";
+import WeightTracker from "./WeightTracker";
 
 export default function ProfileTab({ profile, onSave, onLogout }) {
   const [editing, setEditing] = useState(false);
@@ -179,7 +180,9 @@ export default function ProfileTab({ profile, onSave, onLogout }) {
           ))}
         </div>
 
-        <button className="logout-btn" onClick={onLogout}>
+        <WeightTracker currentUser={profile} />
+
+        <button className="logout-btn" style={{ marginTop: 20 }} onClick={onLogout}>
           Log Out
         </button>
       </div>
