@@ -1,3 +1,5 @@
+const db = require("../config/db");
+
 const ensureWeeklyTasksTable = async () => {
   try {
     await db.query(`
