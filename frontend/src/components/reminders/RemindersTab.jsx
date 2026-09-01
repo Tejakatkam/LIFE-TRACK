@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { fmt12 } from "../../utils/helpers";
-import NotifBanner from "./NotifBanner";
 
 function lsGet(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }
 function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
@@ -91,7 +90,6 @@ export default function RemindersTab({ currentUser }) {
 
   return (
     <>
-      <NotifBanner />
       <div className="section-title">Habit Reminders <small>multiple timers per habit</small></div>
 
       {reminders.length === 0 && (

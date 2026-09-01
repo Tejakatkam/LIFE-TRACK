@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { fmt12, currentDayName } from "../../utils/helpers";
-import NotifBanner from "../reminders/NotifBanner";
 
 function lsGet(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }
 function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
@@ -53,7 +52,6 @@ export default function WeeklyTasksTab({ currentUser }) {
 
   return (
     <>
-      <NotifBanner />
       <div className="section-title">Add Weekly Task</div>
       <div className="add-weekly-form">
         <div className="form-row" style={{ marginBottom: 12 }}>
