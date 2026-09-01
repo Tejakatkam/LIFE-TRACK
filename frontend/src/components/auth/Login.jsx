@@ -5,6 +5,7 @@ import logo from "../../assets/logo.png";
 export default function Login({ onLogin, goToRegister }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -65,13 +66,20 @@ export default function Login({ onLogin, goToRegister }) {
             <div style={{ position: "relative" }}>
               <input
                 className="inp redesign-inp"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 placeholder="••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleLogin()}
               />
-              <span className="eye-icon">👁</span>
+              <span
+                className="eye-icon"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{ cursor: "pointer", userSelect: "none" }}
+                title={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? "🙈" : "👁"}
+              </span>
             </div>
           </div>
 

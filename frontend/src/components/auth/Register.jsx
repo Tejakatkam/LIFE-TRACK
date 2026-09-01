@@ -9,6 +9,7 @@ export default function Register({ onRegister, goToLogin }) {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [age, setAge] = useState("");
@@ -98,8 +99,21 @@ export default function Register({ onRegister, goToLogin }) {
                 <div className="field">
                   <label>PASSWORD</label>
                   <div style={{ position: "relative" }}>
-                    <input className="inp redesign-inp" type="password" placeholder="••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
-                    <span className="eye-icon">👁</span>
+                    <input 
+                      className="inp redesign-inp" 
+                      type={showPassword ? "text" : "password"} 
+                      placeholder="••••••" 
+                      value={password} 
+                      onChange={(e) => setPassword(e.target.value)} 
+                    />
+                    <span 
+                      className="eye-icon"
+                      onClick={() => setShowPassword(!showPassword)}
+                      style={{ cursor: "pointer", userSelect: "none" }}
+                      title={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? "🙈" : "👁"}
+                    </span>
                   </div>
                 </div>
               </div>
