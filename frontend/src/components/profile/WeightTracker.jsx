@@ -5,7 +5,6 @@ import { apiRequest } from "../../utils/api";
 export default function WeightTracker({ currentUser }) {
   const [history, setHistory] = useState([]);
   const [weight, setWeight] = useState("");
-  const [freq, setFreq] = useState("daily");
   const [loading, setLoading] = useState(false);
   const [calData, setCalData] = useState(null);
   const [calLoading, setCalLoading] = useState(false);
@@ -14,17 +13,25 @@ export default function WeightTracker({ currentUser }) {
     fetchHistory();
   }, []);
 
+  const todayStr = new Date().toISOString().split("T")[0];
+
   const fetchHistory = async () => {
     try {
       const data = await apiRequest("/api/weight", "GET");
-      setHistory(data.map(d => ({
-        ...d,
-        displayDate: new Date(d.record_date).toLocaleDateString(undefined, { month: "short", day: "numeric" })
-      })));
+      setHistory((data || []).map(d => {
+        const rawDate = d.record_date instanceof Date ? d.record_date.toISOString().split("T")[0] : String(d.record_date).slice(0, 10);
+        return {
+          ...d,
+          rawDate,
+          displayDate: new Date(d.record_date).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+        };
+      }));
     } catch (err) {
       console.error("Failed to fetch weight history", err);
     }
   };
+
+  const todayEntry = history.find(h => h.rawDate === todayStr);
 
   const handleAddWeight = async () => {
     if (!weight) return;
@@ -32,8 +39,7 @@ export default function WeightTracker({ currentUser }) {
     try {
       await apiRequest("/api/weight", "POST", {
         weight: parseFloat(weight),
-        frequency: freq,
-        record_date: new Date().toISOString().split("T")[0]
+        record_date: todayStr
       });
       setWeight("");
       fetchHistory();
@@ -58,22 +64,28 @@ export default function WeightTracker({ currentUser }) {
     <div style={{ marginTop: 20 }}>
       <div className="section-title">Weight Tracking</div>
       <div className="add-form" style={{ marginBottom: 20 }}>
-        <div className="form-row">
-          <div className="form-field">
-            <label>Frequency</label>
-            <select className="inp" value={freq} onChange={e => setFreq(e.target.value)}>
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-            </select>
-          </div>
-          <div className="form-field f-num">
+        <div className="form-row" style={{ alignItems: "flex-end" }}>
+          <div className="form-field f-num" style={{ flex: 1 }}>
             <label>Weight (kg)</label>
-            <input className="inp" type="number" placeholder="e.g. 70.5" value={weight} onChange={e => setWeight(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAddWeight()} />
+            <input 
+              className="inp" 
+              type="number" 
+              step="0.1"
+              placeholder={todayEntry ? `Current: ${todayEntry.weight} kg` : "e.g. 70.5"} 
+              value={weight} 
+              onChange={e => setWeight(e.target.value)} 
+              onKeyDown={e => e.key === "Enter" && handleAddWeight()} 
+            />
           </div>
-          <button className="add-btn" onClick={handleAddWeight} disabled={loading}>
-            {loading ? "..." : "+ Add"}
+          <button className="add-btn" style={{ minWidth: 120, height: 42 }} onClick={handleAddWeight} disabled={loading}>
+            {loading ? "Saving..." : todayEntry ? "Update Today" : "+ Log Weight"}
           </button>
         </div>
+        {todayEntry && (
+          <div style={{ fontSize: 12, color: "var(--accent)", marginTop: 8 }}>
+            ✓ Recorded today: <strong>{todayEntry.weight} kg</strong> (submitting updates today's log)
+          </div>
+        )}
       </div>
 
       {history.length > 0 ? (
