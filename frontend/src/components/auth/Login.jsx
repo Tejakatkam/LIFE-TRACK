@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { apiRequest } from "../../utils/api";
 import logo from "../../assets/logo.png";
 
@@ -8,6 +8,16 @@ export default function Login({ onLogin, goToRegister }) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const [dark, setDark] = useState(() => {
+    const saved = localStorage.getItem("dark");
+    return saved !== null ? saved === "true" : true;
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-dark", dark);
+    localStorage.setItem("dark", String(dark));
+  }, [dark]);
 
   const handleLogin = async () => {
     try {
@@ -46,7 +56,14 @@ export default function Login({ onLogin, goToRegister }) {
               </div>
               <div className="redesign-title">Life <span>·</span> Track</div>
             </div>
-            <div className="theme-toggle">☀</div>
+            <div 
+              className="theme-toggle" 
+              onClick={() => setDark(!dark)} 
+              style={{ cursor: "pointer", userSelect: "none" }}
+              title="Toggle theme"
+            >
+              {dark ? "☀" : "◑"}
+            </div>
           </div>
           <div className="redesign-sub">YOUR PERSONAL WELLNESS COMPANION</div>
 
