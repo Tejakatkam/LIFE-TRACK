@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { apiRequest } from "../../utils/api";
 
@@ -116,8 +116,13 @@ export default function WeightTracker({ currentUser }) {
                 Note: Gemini API key is missing or unavailable. This is a fallback estimate.
               </div>
             )}
-            <button className="edit-btn" style={{ marginTop: 16, width: "100%" }} onClick={fetchCalorieRec}>
-              ↻ Refresh
+            <button 
+              className="edit-btn" 
+              style={{ marginTop: 16, width: "100%" }} 
+              onClick={fetchCalorieRec}
+              disabled={calLoading}
+            >
+              {calLoading ? "↻ Analyzing with AI..." : "↻ Refresh Recommendation"}
             </button>
           </div>
         )}
