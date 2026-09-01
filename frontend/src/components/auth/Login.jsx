@@ -53,7 +53,7 @@ export default function Login({ onLogin, goToRegister }) {
             <label>USERNAME OR EMAIL</label>
             <input
               className="inp redesign-inp"
-              placeholder="e.g. priya or you@email.com"
+              placeholder="e.g. username or you@email.com"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleLogin()}

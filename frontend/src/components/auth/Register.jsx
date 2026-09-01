@@ -93,7 +93,7 @@ export default function Register({ onRegister, goToLogin }) {
               <div className="grid-2">
                 <div className="field">
                   <label>USERNAME</label>
-                  <input className="inp redesign-inp" placeholder="e.g. priya" value={username} onChange={(e) => setUsername(e.target.value)} />
+                  <input className="inp redesign-inp" placeholder="e.g. your_username" value={username} onChange={(e) => setUsername(e.target.value)} />
                 </div>
                 <div className="field">
                   <label>PASSWORD</label>
