@@ -1,29 +1,28 @@
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  connectionTimeout: 10000, // 10 seconds
-  greetingTimeout: 10000,
-  socketTimeout: 10000,
-});
+// Initialize Resend with API key from environment variables
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 exports.sendEmail = async ({ to, subject, text, html, attachments = [] }) => {
   try {
-    await transporter.sendMail({
-      from: `"LifeTrack" <${process.env.EMAIL_USER}>`,
-      to,
-      subject,
-      text,
-      html,
-      attachments,
+    const { data, error } = await resend.emails.send({
+      // Resend free tier requires sending FROM onboarding@resend.dev
+      from: "LifeTrack <onboarding@resend.dev>",
+      to: [to],
+      subject: subject,
+      text: text,
+      html: html,
+      attachments: attachments,
     });
-    console.log("Email sent to", to);
+
+    if (error) {
+      console.error("Resend API error:", error);
+      throw new Error(error.message);
+    }
+    
+    console.log("Email sent successfully via Resend to", to);
   } catch (err) {
-    console.error("Email error:", err);
+    console.error("Email service error:", err);
     throw err;
   }
 };

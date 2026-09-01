@@ -1,6 +1,3 @@
-const dns = require("node:dns");
-dns.setDefaultResultOrder("ipv4first");
-
 require("dotenv").config();
 require("./services/scheduler");
 const express = require("express");
