@@ -21,6 +21,47 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
+const callGemini = async (apiKey, prompt, isJson = false) => {
+  const modelsToTry = [
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+    "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent",
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent",
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
+  ];
+
+  let lastError = null;
+  for (const baseUrl of modelsToTry) {
+    try {
+      const url = `${baseUrl}?key=${apiKey}`;
+      const payload = {
+        contents: [{ parts: [{ text: prompt }] }],
+      };
+      if (isJson) {
+        payload.generationConfig = { responseMimeType: "application/json" };
+      }
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (data.error) {
+        lastError = new Error(data.error.message || `Error calling ${baseUrl}`);
+        continue;
+      }
+
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) return text.trim();
+    } catch (e) {
+      lastError = e;
+    }
+  }
+
+  throw lastError || new Error("Failed to generate content from all Gemini endpoints");
+};
+
 exports.getCalorieRecommendation = async (req, res) => {
   let fallbackCalories = 2000;
   let user = null;
@@ -56,24 +97,16 @@ exports.getCalorieRecommendation = async (req, res) => {
 
     const prompt = `You are a fitness AI. Based on this user profile: Weight: ${user.weight || 70}kg, Height: ${user.height || 170}cm, Age: ${user.age || 25}, Gender: ${user.gender || 'other'}, Goal: ${user.goal || 'maintain'}. Calculate the recommended daily calorie intake. Return ONLY a valid JSON object matching exactly this structure: {"dailyCalories": 2000, "goal": "${user.goal || 'maintain'}", "explanation": "Short 1 sentence explanation."}`;
 
-    const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: "application/json" }
-      })
-    });
+    const text = await callGemini(apiKey, prompt, true);
 
-    const data = await aiRes.json();
-    if (data.error) throw new Error(data.error.message || "Gemini API error");
-
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     try {
       const parsed = JSON.parse(text);
       return res.json(parsed);
     } catch (e) {
-      throw new Error("Failed to parse Gemini response");
+      // If AI returned text with markdown code fences
+      const cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
+      const parsed = JSON.parse(cleaned);
+      return res.json(parsed);
     }
   } catch (err) {
     console.error("Gemini AI error:", err.message);
@@ -97,21 +130,9 @@ exports.getHabitDescription = async (req, res) => {
     }
 
     const prompt = `Write a short, motivating description for a daily habit called "${habitName}". Max 10 words. No quotes. Just the description.`;
+    const text = await callGemini(apiKey, prompt, false);
 
-    const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 80 }
-      })
-    });
-
-    const data = await aiRes.json();
-    if (data.error) throw new Error(data.error.message || "Gemini API error");
-
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    return res.json({ description: text.trim() });
+    return res.json({ description: text });
   } catch (err) {
     console.error("Gemini AI habit error:", err.message);
     return res.json({ description: "Build a consistent routine." });
