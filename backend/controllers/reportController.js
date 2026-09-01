@@ -8,7 +8,7 @@ exports.generateWeeklyReport = async (req, res) => {
     const { trackData = {}, allHabits = [] } = req.body || {};
     const pdfBuffer = await generateWeeklyPDF(userId, trackData, allHabits);
 
-    res.setHeader("Content-Disposition", "attachment; filename=weekly_report.pdf");
+    res.setHeader("Content-Disposition", "attachment; filename=lifetrack-weekly-report.pdf");
     res.setHeader("Content-Type", "application/pdf");
     res.send(pdfBuffer);
   } catch (err) {
@@ -36,7 +36,7 @@ exports.sendWeeklyReportEmail = async (req, res) => {
       text: `Hello ${users[0].username || "there"}, attached is your weekly progress report from LifeTrack!`,
       attachments: [
         {
-          filename: `LifeTrack_Weekly_Report_${new Date().toISOString().split("T")[0]}.pdf`,
+          filename: "lifetrack-weekly-report.pdf",
           content: pdfBuffer,
         },
       ],

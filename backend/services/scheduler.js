@@ -110,7 +110,7 @@ cron.schedule("0 18 * * 0", async () => {
           text: "Attached is your weekly progress report from LifeTrack.",
           attachments: [
             {
-              filename: "LifeTrack_Weekly_Report.pdf",
+              filename: "lifetrack-weekly-report.pdf",
               content: pdfBuffer,
             },
           ],

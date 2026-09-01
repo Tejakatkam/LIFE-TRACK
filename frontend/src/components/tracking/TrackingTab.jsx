@@ -70,7 +70,7 @@ export default function TrackingTab({ currentUser }) {
       const blob = await res.blob();
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `weekly_report_${weekDays[0].toISOString().split("T")[0]}.pdf`;
+      a.download = "lifetrack-weekly-report.pdf";
       a.click();
 
       // Rule #11: NO DATABASE RESET. NO HABIT RESET.
