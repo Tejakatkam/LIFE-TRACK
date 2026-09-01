@@ -7,41 +7,37 @@ const { getReminderEmailHtml } = require("../utils/emailTemplate");
 cron.schedule("* * * * *", async () => {
   const now = new Date();
 
-  // Get current HH:MM and Day across IST (Asia/Kolkata), UTC, and local server time
-  const istTime = now.toLocaleTimeString("en-GB", {
-    timeZone: "Asia/Kolkata",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  const istDay = now.toLocaleDateString("en-US", {
-    timeZone: "Asia/Kolkata",
-    weekday: "long",
-  });
+  // 1. Calculate IST (UTC + 5 hours 30 minutes) deterministically with milliseconds
+  const istOffsetMs = 5.5 * 60 * 60 * 1000;
+  const istDate = new Date(now.getTime() + istOffsetMs);
+  const istHours = String(istDate.getUTCHours()).padStart(2, "0");
+  const istMinutes = String(istDate.getUTCMinutes()).padStart(2, "0");
+  const istTime = `${istHours}:${istMinutes}`;
 
-  const utcTime = now.toISOString().slice(11, 16);
-  const utcDay = now.toLocaleDateString("en-US", {
-    timeZone: "UTC",
-    weekday: "long",
-  });
+  const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const istDay = days[istDate.getUTCDay()];
 
-  const localTime = now.toTimeString().slice(0, 5);
-  const localDay = now.toLocaleDateString("en-US", { weekday: "long" });
+  // 2. Calculate UTC
+  const utcHours = String(now.getUTCHours()).padStart(2, "0");
+  const utcMinutes = String(now.getUTCMinutes()).padStart(2, "0");
+  const utcTime = `${utcHours}:${utcMinutes}`;
+  const utcDay = days[now.getUTCDay()];
 
-  const checkTimes = [...new Set([istTime, utcTime, localTime])];
-  const checkDays = [...new Set([istDay, utcDay, localDay])];
-
-  console.log(`[Scheduler] Checking reminders for times: [${checkTimes.join(", ")}]`);
+  console.log(`[Scheduler Tick] Checking alarms -> IST: ${istTime} (${istDay}) | UTC: ${utcTime} (${utcDay})`);
 
   try {
-    // 🔔 DAILY REMINDERS
+    // 🔔 DAILY REMINDERS (Match either IST or UTC time format e.g. "21:50")
     const [reminders] = await db.query(
-      `SELECT r.*, u.email
+      `SELECT r.*, u.email, u.username
        FROM reminders r
        JOIN users u ON r.user_id = u.id
-       WHERE r.time = ? OR r.time = ? OR r.time = ?`,
-      [istTime, utcTime, localTime],
+       WHERE TRIM(r.time) = ? OR TRIM(r.time) = ?`,
+      [istTime, utcTime],
     );
+
+    if (reminders && reminders.length > 0) {
+      console.log(`[Scheduler] Found ${reminders.length} reminder(s) to send at ${istTime}`);
+    }
 
     const sentReminders = new Set();
     for (let r of reminders) {
@@ -57,19 +53,22 @@ cron.schedule("* * * * *", async () => {
         text: `Reminder: ${r.habit_name} - Stay consistent with your daily wellness routine!`,
         html: htmlContent,
       });
-      console.log(`[Scheduler] Sent daily reminder for "${r.habit_name}" to ${r.email}`);
+      console.log(`[Scheduler] ✅ Reminder for "${r.habit_name}" successfully sent to ${r.email}`);
     }
 
     // 📅 WEEKLY TASKS
     const [weekly] = await db.query(
-      `SELECT w.*, u.email
+      `SELECT w.*, u.email, u.username
        FROM weekly_tasks w
        JOIN users u ON w.user_id = u.id
-       WHERE (w.day = ? AND w.reminder_time = ?)
-          OR (w.day = ? AND w.reminder_time = ?)
-          OR (w.day = ? AND w.reminder_time = ?)`,
-      [istDay, istTime, utcDay, utcTime, localDay, localTime],
+       WHERE (TRIM(w.day) = ? AND TRIM(w.reminder_time) = ?)
+          OR (TRIM(w.day) = ? AND TRIM(w.reminder_time) = ?)`,
+      [istDay, istTime, utcDay, utcTime],
     );
+
+    if (weekly && weekly.length > 0) {
+      console.log(`[Scheduler] Found ${weekly.length} weekly task(s) to send`);
+    }
 
     const sentWeekly = new Set();
     for (let t of weekly) {
@@ -85,7 +84,7 @@ cron.schedule("* * * * *", async () => {
         text: `Weekly Task: ${t.name} - Today is ${t.day}!`,
         html: htmlContent,
       });
-      console.log(`[Scheduler] Sent weekly task reminder for "${t.name}" to ${t.email}`);
+      console.log(`[Scheduler] ✅ Weekly task reminder for "${t.name}" sent to ${t.email}`);
     }
   } catch (err) {
     console.error("[Scheduler] Error checking reminders:", err);
