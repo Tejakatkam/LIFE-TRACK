@@ -7,10 +7,12 @@ const {
   addWeeklyTask,
   toggleWeeklyTask,
   deleteWeeklyTask,
+  syncWeeklyTasks,
 } = require("../controllers/weeklyController");
 
 router.get("/", verifyToken, getWeeklyTasks);
 router.post("/", verifyToken, addWeeklyTask);
+router.post("/sync", verifyToken, syncWeeklyTasks);
 router.put("/:id", verifyToken, toggleWeeklyTask);
 router.delete("/:id", verifyToken, deleteWeeklyTask);
 

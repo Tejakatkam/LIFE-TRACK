@@ -20,9 +20,24 @@ export default function WeeklyTasksTab({ currentUser }) {
     setWeeklyTasks(stored || []);
   }, [userId]);
 
-  const save = (updated) => {
+  const save = async (updated) => {
     setWeeklyTasks(updated);
     lsSet(`weekly_${userId}`, updated);
+
+    // Sync to backend database so weekly email reminders work!
+    try {
+      const BASE_URL = import.meta.env.VITE_API_URL;
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      await fetch(`${BASE_URL}/api/weekly/sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ tasks: updated })
+      });
+    } catch (e) {
+      console.error("Weekly task sync error:", e);
+    }
   };
 
   const addTask = () => {
