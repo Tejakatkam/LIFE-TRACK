@@ -81,6 +81,31 @@ export default function TrackingTab({ currentUser }) {
     }
   };
 
+  const [emailing, setEmailing] = useState(false);
+  const emailReport = async () => {
+    setEmailing(true);
+    try {
+      const BASE_URL = import.meta.env.VITE_API_URL;
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${BASE_URL}/api/reports/email-weekly`, {
+        method: "POST",
+        headers: { 
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ trackData, allHabits })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to email report");
+      alert(data.message || "Weekly report sent to your email!");
+    } catch (err) {
+      console.error(err);
+      alert(err.message || "Failed to send weekly report email.");
+    } finally {
+      setEmailing(false);
+    }
+  };
+
   return (
     <>
       <div className="section-title">Weekly Overview</div>
@@ -115,9 +140,14 @@ export default function TrackingTab({ currentUser }) {
         </div>
       ))}
 
-      <button className="pdf-btn" onClick={generateReport}>
-        📥 Download Weekly Report
-      </button>
+      <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
+        <button className="pdf-btn" style={{ flex: 1 }} onClick={generateReport}>
+          📥 Download PDF Report
+        </button>
+        <button className="pdf-btn" style={{ flex: 1 }} onClick={emailReport} disabled={emailing}>
+          {emailing ? "⏳ Sending Email..." : "📧 Email Weekly Report"}
+        </button>
+      </div>
     </>
   );
 }

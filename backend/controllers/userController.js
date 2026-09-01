@@ -22,15 +22,17 @@ exports.updateProfile = async (req, res) => {
 };
 
 exports.getCalorieRecommendation = async (req, res) => {
+  let fallbackCalories = 2000;
+  let user = null;
+
   try {
     const userId = req.user.id;
     const [rows] = await db.query("SELECT age, weight, height, gender, goal FROM users WHERE id = ?", [userId]);
     
     if (rows.length === 0) return res.status(404).json({ message: "User not found" });
-    const user = rows[0];
+    user = rows[0];
 
     // Fallback deterministic calculation if Gemini fails or is missing
-    let fallbackCalories = 2000;
     if (user.weight && user.height && user.age) {
       // Mifflin-St Jeor Equation
       let bmr = 10 * user.weight + 6.25 * user.height - 5 * user.age;
@@ -52,9 +54,9 @@ exports.getCalorieRecommendation = async (req, res) => {
       });
     }
 
-    const prompt = `You are a fitness AI. Based on this user profile: Weight: ${user.weight}kg, Height: ${user.height}cm, Age: ${user.age}, Gender: ${user.gender}, Goal: ${user.goal}. Calculate the recommended daily calorie intake. Return ONLY a valid JSON object matching exactly this structure: {"dailyCalories": 2000, "goal": "${user.goal}", "explanation": "Short 1 sentence explanation."}`;
+    const prompt = `You are a fitness AI. Based on this user profile: Weight: ${user.weight || 70}kg, Height: ${user.height || 170}cm, Age: ${user.age || 25}, Gender: ${user.gender || 'other'}, Goal: ${user.goal || 'maintain'}. Calculate the recommended daily calorie intake. Return ONLY a valid JSON object matching exactly this structure: {"dailyCalories": 2000, "goal": "${user.goal || 'maintain'}", "explanation": "Short 1 sentence explanation."}`;
 
-    const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+    const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -64,7 +66,7 @@ exports.getCalorieRecommendation = async (req, res) => {
     });
 
     const data = await aiRes.json();
-    if (data.error) throw new Error(data.error.message);
+    if (data.error) throw new Error(data.error.message || "Gemini API error");
 
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     try {
@@ -75,7 +77,7 @@ exports.getCalorieRecommendation = async (req, res) => {
     }
   } catch (err) {
     console.error("Gemini AI error:", err.message);
-    res.json({
+    return res.json({
       dailyCalories: fallbackCalories,
       goal: user?.goal || "maintain",
       explanation: "Generated using standard formula (AI service unavailable).",
@@ -96,7 +98,7 @@ exports.getHabitDescription = async (req, res) => {
 
     const prompt = `Write a short, motivating description for a daily habit called "${habitName}". Max 10 words. No quotes. Just the description.`;
 
-    const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+    const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -106,13 +108,13 @@ exports.getHabitDescription = async (req, res) => {
     });
 
     const data = await aiRes.json();
-    if (data.error) throw new Error(data.error.message);
+    if (data.error) throw new Error(data.error.message || "Gemini API error");
 
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     return res.json({ description: text.trim() });
   } catch (err) {
     console.error("Gemini AI habit error:", err.message);
-    res.json({ description: "Build a consistent routine." });
+    return res.json({ description: "Build a consistent routine." });
   }
 };
 
