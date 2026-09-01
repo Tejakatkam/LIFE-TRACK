@@ -17,13 +17,10 @@
 ## 📖 Table of Contents
 - [Project Overview](#-project-overview)
 - [Key Features](#-key-features)
-- [System Architecture](#-system-architecture)
 - [Tech Stack](#-tech-stack)
 - [Database Schema](#-database-schema)
 - [Environment Variables](#-environment-variables)
 - [Getting Started](#-getting-started)
-- [API Reference](#-api-reference)
-- [Portfolio & Engineering Highlights](#-portfolio--engineering-highlights)
 
 ---
 
@@ -69,27 +66,6 @@ Engineered with a **stateless OTP authentication pipeline**, a **distributed mul
     </td>
   </tr>
 </table>
-
----
-
-## 🏗️ System Architecture
-
-```mermaid
-graph TD
-    User([Client / Browser]) -->|React + Vite UI| Frontend[Frontend Client]
-    Frontend -->|JWT Bearer Auth| Backend[Express.js REST API]
-    
-    Backend -->|CRUD & Relations| DB[(PostgreSQL Database)]
-    Backend -->|Health Prompts| Gemini[Google Gemini AI API]
-    Backend -->|Vector Stream| PDFEngine[PDFKit Report Engine]
-    Backend -->|HTTPS Trigger| VercelService[Vercel Serverless Mailer]
-    
-    VercelService -->|SMTP SSL 465| Gmail[Gmail Mail Server]
-    Gmail -->|OTP & Reports| UserInbox([User Email Inbox])
-    
-    Scheduler[Multi-Timezone Cron Scheduler] -.->|Every 60s Check| DB
-    Scheduler -.->|Trigger Alarms| VercelService
-```
 
 ---
 
@@ -187,7 +163,6 @@ GEMINI_API_KEY=your_google_ai_studio_gemini_key
 MAIL_SERVICE_URL=https://your-vercel-project.vercel.app/api/send-email
 EMAIL_USER=your_gmail@gmail.com
 EMAIL_PASS=your_16_letter_app_password
-RESEND_API_KEY=re_your_resend_key_optional
 ```
 
 ---
@@ -218,42 +193,6 @@ npm run dev
 
 ---
 
-## 🔌 API Reference
-
-### Authentication
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `POST` | `/api/auth/send-verification` | Generates 6-digit OTP and returns signed `otpToken` |
-| `POST` | `/api/auth/verify-registration` | Validates OTP and commits user to PostgreSQL |
-| `POST` | `/api/auth/login` | Authenticates user and issues 7-day JWT token |
-| `GET` | `/api/auth/me` | Fetches active authenticated user profile |
-| `DELETE`| `/api/auth/me` | Cascading deletion of account and all user data |
-
-### AI & Health Analytics
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/api/user/calorie-recommendation` | Computes AI/Mifflin-St Jeor caloric target |
-| `POST` | `/api/user/habit-description` | Generates AI motivational habit copy |
-| `GET` | `/api/weight` | Retrieves historical weight timeline |
-| `POST` | `/api/weight` | Logs new timestamped weight entry |
-
-### Reports & Reminders
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `POST` | `/api/reports/weekly` | Generates and downloads 3-page vector PDF report |
-| `POST` | `/api/reports/email-weekly` | Compiles and emails weekly wellness report directly |
-| `POST` | `/api/reminders/sync` | Batch-syncs active habit timers with backend scheduler |
-
----
-
-## 🏆 Portfolio & Engineering Highlights
-
-- **Eliminated Ghost Accounts:** Devised a cryptographic stateless OTP flow that encrypts user payloads into temporary verification tokens, ensuring database writes occur only after verified email authentication.
-- **Architected Cloud Email Relay:** Solved cloud provider outbound SMTP firewall restrictions (Render Port 25/465/587 blocks) by engineering a dedicated Vercel Serverless HTTPS proxy to Gmail SMTP.
-- **Resilient AI Pipelines:** Built a failover AI strategy using Google Gemini SDK that falls back to the deterministic Mifflin-St Jeor metabolic formula in high-latency or restricted environments.
-- **Zero-Data-Loss PDF Generator:** Created a high-density, multi-page vector PDF generation engine with PDFKit, calculating weekly compliance rates without mutating underlying historical habit logs.
-
----
 
 <div align="center">
   <sub>Crafted with passion for clean code and holistic wellness • <strong>LifeTrack</strong></sub>
