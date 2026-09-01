@@ -27,18 +27,41 @@ const callGemini = async (apiKey, prompt, isJson = false) => {
   const cleanKey = String(apiKey || "").trim().replace(/^["']|["']$/g, "");
   if (!cleanKey) throw new Error("Empty Gemini API Key");
 
-  const genAI = new GoogleGenerativeAI(cleanKey);
-  const candidateModels = [
+  // Step 1: Query Google to see exactly which models this API key has access to
+  let availableModelNames = [];
+  try {
+    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`);
+    if (listRes.ok) {
+      const listData = await listRes.json();
+      if (Array.isArray(listData?.models)) {
+        availableModelNames = listData.models
+          .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
+          .map(m => m.name.replace(/^models\//, ""));
+      }
+    } else {
+      const errBody = await listRes.json().catch(() => ({}));
+      console.log(`[Gemini AI Notice] Google Model List response: ${listRes.status} - ${errBody?.error?.message || "Check API Key permissions"}`);
+    }
+  } catch (e) {
+    console.log("[Gemini AI Notice] Could not list models:", e.message);
+  }
+
+  // Combine discovered models with candidate defaults
+  const modelsToTry = [
+    ...availableModelNames,
     "gemini-1.5-flash",
     "gemini-2.0-flash",
     "gemini-1.5-pro",
     "gemini-1.0-pro",
     "gemini-pro"
   ];
+  const uniqueModels = [...new Set(modelsToTry)];
+
+  const genAI = new GoogleGenerativeAI(cleanKey);
   let lastError = null;
 
-  // 1. Try official SDK
-  for (const modelName of candidateModels) {
+  // Step 2: Try via official SDK
+  for (const modelName of uniqueModels) {
     try {
       const model = genAI.getGenerativeModel({
         model: modelName,
@@ -54,9 +77,9 @@ const callGemini = async (apiKey, prompt, isJson = false) => {
     }
   }
 
-  // 2. Direct REST fallback across v1beta & v1
+  // Step 3: Direct REST fallback across v1beta & v1
   for (const apiVersion of ["v1beta", "v1"]) {
-    for (const modelName of candidateModels) {
+    for (const modelName of uniqueModels) {
       try {
         const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${modelName}:generateContent?key=${cleanKey}`;
         const response = await fetch(url, {
