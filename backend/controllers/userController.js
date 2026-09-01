@@ -21,45 +21,31 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
 const callGemini = async (apiKey, prompt, isJson = false) => {
-  const modelsToTry = [
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
-    "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent",
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent",
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
-  ];
-
+  const genAI = new GoogleGenerativeAI(apiKey);
+  
+  const models = ["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-2.0-flash", "gemini-1.5-pro"];
   let lastError = null;
-  for (const baseUrl of modelsToTry) {
-    try {
-      const url = `${baseUrl}?key=${apiKey}`;
-      const payload = {
-        contents: [{ parts: [{ text: prompt }] }],
-      };
-      if (isJson) {
-        payload.generationConfig = { responseMimeType: "application/json" };
-      }
 
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+  for (const modelName of models) {
+    try {
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: isJson ? { responseMimeType: "application/json" } : undefined,
       });
 
-      const data = await res.json();
-      if (data.error) {
-        lastError = new Error(data.error.message || `Error calling ${baseUrl}`);
-        continue;
-      }
-
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
       if (text) return text.trim();
     } catch (e) {
       lastError = e;
     }
   }
 
-  throw lastError || new Error("Failed to generate content from all Gemini endpoints");
+  throw lastError || new Error("Failed to generate content using Gemini SDK");
 };
 
 exports.getCalorieRecommendation = async (req, res) => {
