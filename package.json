@@ -1,0 +1,8 @@
+{
+  "name": "lifetrack-mail-service",
+  "version": "1.0.0",
+  "description": "Vercel serverless mailer microservice for LifeTrack",
+  "dependencies": {
+    "nodemailer": "^6.9.16"
+  }
+}
