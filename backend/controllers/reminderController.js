@@ -21,6 +21,13 @@ const ensureRemindersTable = async () => {
     await db.query(`ALTER TABLE reminders ADD COLUMN IF NOT EXISTS time VARCHAR(20)`).catch(() => {});
     await db.query(`ALTER TABLE reminders ADD COLUMN IF NOT EXISTS label VARCHAR(255)`).catch(() => {});
     
+    // Convert habit_id and other columns from INT to VARCHAR if table had older integer types
+    await db.query(`ALTER TABLE reminders ALTER COLUMN habit_id TYPE VARCHAR(100) USING habit_id::VARCHAR`).catch(() => {});
+    await db.query(`ALTER TABLE reminders ALTER COLUMN habit_name TYPE VARCHAR(255) USING habit_name::VARCHAR`).catch(() => {});
+    await db.query(`ALTER TABLE reminders ALTER COLUMN time TYPE VARCHAR(20) USING time::VARCHAR`).catch(() => {});
+    await db.query(`ALTER TABLE reminders ALTER COLUMN icon TYPE VARCHAR(50) USING icon::VARCHAR`).catch(() => {});
+    await db.query(`ALTER TABLE reminders ALTER COLUMN label TYPE VARCHAR(255) USING label::VARCHAR`).catch(() => {});
+
     // In case an older table had NOT NULL constraints on other columns
     await db.query(`ALTER TABLE reminders ALTER COLUMN habit_id DROP NOT NULL`).catch(() => {});
     await db.query(`ALTER TABLE reminders ALTER COLUMN habit_name DROP NOT NULL`).catch(() => {});
