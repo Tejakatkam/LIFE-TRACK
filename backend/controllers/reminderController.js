@@ -63,22 +63,25 @@ exports.deleteReminder = async (req, res) => {
 exports.syncReminders = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { reminders } = req.body;
+    const { reminders = [] } = req.body || {};
 
-    // Delete existing
+    const reminderList = Array.isArray(reminders) ? reminders : [];
+
+    // Delete existing reminders for user
     await db.query("DELETE FROM reminders WHERE user_id = ?", [userId]);
 
     // Insert new
-    for (let r of reminders) {
+    for (let r of reminderList) {
+      if (!r.time) continue;
       await db.query(
         "INSERT INTO reminders (user_id, habit_id, habit_name, icon, time, label) VALUES (?, ?, ?, ?, ?, ?)",
-        [userId, r.habit_id, r.habit_name, r.icon, r.time, r.label]
+        [userId, r.habit_id || "", r.habit_name || "", r.icon || "◆", r.time, r.label || ""]
       );
     }
 
-    res.json({ message: "Synced" });
+    res.json({ message: "Reminders synced successfully" });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    console.error("syncReminders error:", error);
+    res.status(500).json({ message: `Failed to sync reminders: ${error.message}` });
   }
 };
