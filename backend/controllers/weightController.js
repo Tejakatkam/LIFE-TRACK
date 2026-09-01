@@ -1,3 +1,5 @@
+const db = require("../config/db");
+
 const ensureWeightRecordsTable = async () => {
   try {
     await db.query(`
