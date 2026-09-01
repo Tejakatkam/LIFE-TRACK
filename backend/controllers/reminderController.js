@@ -9,17 +9,24 @@ const ensureRemindersTable = async () => {
         habit_id VARCHAR(100),
         habit_name VARCHAR(255),
         icon VARCHAR(50),
-        time VARCHAR(20) NOT NULL,
+        time VARCHAR(20),
         label VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    await db.query(`ALTER TABLE reminders ADD COLUMN IF NOT EXISTS user_id INT`);
-    await db.query(`ALTER TABLE reminders ADD COLUMN IF NOT EXISTS habit_id VARCHAR(100)`);
-    await db.query(`ALTER TABLE reminders ADD COLUMN IF NOT EXISTS habit_name VARCHAR(255)`);
-    await db.query(`ALTER TABLE reminders ADD COLUMN IF NOT EXISTS icon VARCHAR(50)`);
-    await db.query(`ALTER TABLE reminders ADD COLUMN IF NOT EXISTS time VARCHAR(20)`);
-    await db.query(`ALTER TABLE reminders ADD COLUMN IF NOT EXISTS label VARCHAR(255)`);
+    await db.query(`ALTER TABLE reminders ADD COLUMN IF NOT EXISTS user_id INT`).catch(() => {});
+    await db.query(`ALTER TABLE reminders ADD COLUMN IF NOT EXISTS habit_id VARCHAR(100)`).catch(() => {});
+    await db.query(`ALTER TABLE reminders ADD COLUMN IF NOT EXISTS habit_name VARCHAR(255)`).catch(() => {});
+    await db.query(`ALTER TABLE reminders ADD COLUMN IF NOT EXISTS icon VARCHAR(50)`).catch(() => {});
+    await db.query(`ALTER TABLE reminders ADD COLUMN IF NOT EXISTS time VARCHAR(20)`).catch(() => {});
+    await db.query(`ALTER TABLE reminders ADD COLUMN IF NOT EXISTS label VARCHAR(255)`).catch(() => {});
+    
+    // In case an older table had NOT NULL constraints on other columns
+    await db.query(`ALTER TABLE reminders ALTER COLUMN habit_id DROP NOT NULL`).catch(() => {});
+    await db.query(`ALTER TABLE reminders ALTER COLUMN habit_name DROP NOT NULL`).catch(() => {});
+    await db.query(`ALTER TABLE reminders ALTER COLUMN time DROP NOT NULL`).catch(() => {});
+    await db.query(`ALTER TABLE reminders ALTER COLUMN icon DROP NOT NULL`).catch(() => {});
+    await db.query(`ALTER TABLE reminders ALTER COLUMN label DROP NOT NULL`).catch(() => {});
   } catch (e) {
     console.error("ensureRemindersTable error:", e);
   }
