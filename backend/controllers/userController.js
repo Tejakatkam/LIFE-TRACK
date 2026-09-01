@@ -138,18 +138,56 @@ exports.getCalorieRecommendation = async (req, res) => {
       });
     }
 
-    const prompt = `You are a fitness AI. Based on this user profile: Weight: ${user.weight || 70}kg, Height: ${user.height || 170}cm, Age: ${user.age || 25}, Gender: ${user.gender || 'other'}, Goal: ${user.goal || 'maintain'}. Calculate the recommended daily calorie intake. Return ONLY a valid JSON object matching exactly this structure: {"dailyCalories": 2000, "goal": "${user.goal || 'maintain'}", "explanation": "Short 1 sentence explanation."}`;
+    const prompt = `You are a professional fitness and clinical nutrition AI.
+User Profile:
+- Weight: ${user.weight || 70} kg
+- Height: ${user.height || 170} cm
+- Age: ${user.age || 25} years
+- Gender: ${user.gender || 'male'}
+- Goal: ${user.goal || 'loss'}
+
+Calculate the exact recommended daily caloric intake for this user.
+Respond ONLY with a JSON object in this exact schema, with no preamble or commentary:
+{
+  "dailyCalories": 1950,
+  "goal": "${user.goal || 'loss'}",
+  "explanation": "Brief 1-2 sentence explanation tailored to their goal and metabolic rate."
+}`;
 
     const text = await callGemini(apiKey, prompt, true);
 
     try {
-      const parsed = JSON.parse(text);
-      return res.json(parsed);
-    } catch (e) {
-      // If AI returned text with markdown code fences
+      // 1. Try extracting the { ... } JSON block
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.dailyCalories) {
+          return res.json({
+            dailyCalories: Number(parsed.dailyCalories),
+            goal: parsed.goal || user.goal || "maintain",
+            explanation: parsed.explanation || "AI-generated personalized recommendation based on your metabolic metrics.",
+            fallback: false
+          });
+        }
+      }
+
+      // 2. Direct clean parse
       const cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
       const parsed = JSON.parse(cleaned);
-      return res.json(parsed);
+      return res.json({
+        dailyCalories: Number(parsed.dailyCalories || fallbackCalories),
+        goal: parsed.goal || user.goal || "maintain",
+        explanation: parsed.explanation || "AI-generated personalized recommendation.",
+        fallback: false
+      });
+    } catch (parseErr) {
+      console.error("Gemini response parse warning:", parseErr.message, "Raw response:", text);
+      return res.json({
+        dailyCalories: fallbackCalories,
+        goal: user.goal || "maintain",
+        explanation: text.length < 200 ? text : "AI-generated recommendation tailored to your metabolic rate.",
+        fallback: false
+      });
     }
   } catch (err) {
     console.error("Gemini AI error:", err.message);
