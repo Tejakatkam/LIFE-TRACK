@@ -10,6 +10,13 @@ module.exports = async (req, res) => {
     return res.status(200).end();
   }
 
+  if (req.method === "GET") {
+    return res.status(200).json({
+      status: "active",
+      message: "LifeTrack Email API is ready. Send a POST request to dispatch emails.",
+    });
+  }
+
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed. Please use POST." });
   }
