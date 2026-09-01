@@ -57,18 +57,18 @@ exports.generateWeeklyPDF = async (userId, trackData = {}, allHabits = []) => {
 
   // Default Standard Habits exactly matching reference
   const defaultHabitList = [
-    { id: "skincare", name: "Skincare", sub: "Morning &\nnight\nroutine", iconType: "star" },
-    { id: "diet", name: "Proper\nDiet", sub: "Balanced\nmeals\ntoday", iconType: "diamond" },
-    { id: "steps", name: "Walking\nSteps", sub: "Daily step\ngoal", iconType: "target" },
-    { id: "water", name: "Water\nIntake", sub: "Stay\nhydrated", iconType: "water" },
-    { id: "sleep", name: "Quality\nSleep", sub: "Restful\nsleep", iconType: "moon" }
+    { id: "skincare", name: "Skincare", sub: "Morning &\nnight routine", iconType: "star" },
+    { id: "diet", name: "Proper Diet", sub: "Balanced\nmeals today", iconType: "diamond" },
+    { id: "steps", name: "Walking Steps", sub: "Daily step\ngoal", iconType: "target" },
+    { id: "water", name: "Water Intake", sub: "Stay\nhydrated", iconType: "water" },
+    { id: "sleep", name: "Quality Sleep", sub: "Restful\nsleep", iconType: "moon" }
   ];
 
   const sourceHabits = allHabits.length > 0 ? allHabits.map((h, i) => {
     const def = defaultHabitList[i % defaultHabitList.length];
     return {
       id: h.id,
-      name: h.name.includes("\n") ? h.name : (h.name.length > 10 ? h.name.replace(" ", "\n") : h.name),
+      name: h.name,
       sub: h.sub || def.sub,
       iconType: def.iconType
     };
@@ -134,11 +134,10 @@ exports.generateWeeklyPDF = async (userId, trackData = {}, allHabits = []) => {
   const buffers = [];
   doc.on("data", buffers.push.bind(buffers));
 
-  // Helper Vector Drawing Functions (Guarantee 100% Vector Quality & Zero Font Encoding Bugs)
+  // Helper Vector Drawing Functions
   const drawVectorIcon = (type, cx, cy) => {
     doc.save();
     if (type === "star") {
-      // 4-pointed sparkle star
       doc.fillColor("#c5a073");
       const r = 5.5;
       doc.moveTo(cx, cy - r)
@@ -152,22 +151,18 @@ exports.generateWeeklyPDF = async (userId, trackData = {}, allHabits = []) => {
         .closePath()
         .fill();
     } else if (type === "diamond") {
-      // Double diamond
       doc.lineWidth(1).strokeColor("#66584d");
       doc.moveTo(cx, cy - 5.5).lineTo(cx + 5.5, cy).lineTo(cx, cy + 5.5).lineTo(cx - 5.5, cy).closePath().stroke();
       doc.fillColor("#c5a073");
       doc.moveTo(cx, cy - 2.5).lineTo(cx + 2.5, cy).lineTo(cx, cy + 2.5).lineTo(cx - 2.5, cy).closePath().fill();
     } else if (type === "target") {
-      // Circle inside circle
       doc.lineWidth(1).strokeColor("#66584d");
       doc.circle(cx, cy, 5.5).stroke();
       doc.fillColor("#c5a073").circle(cx, cy, 2.5).fill();
     } else if (type === "water") {
-      // Diamond water icon
       doc.lineWidth(1).strokeColor("#66584d");
       doc.moveTo(cx, cy - 5.5).lineTo(cx + 5.5, cy).lineTo(cx, cy + 5.5).lineTo(cx - 5.5, cy).closePath().stroke();
     } else if (type === "moon") {
-      // Half-moon / split circle
       doc.lineWidth(1).strokeColor("#66584d");
       doc.circle(cx, cy, 5.5).stroke();
       doc.fillColor("#66584d");
@@ -220,32 +215,32 @@ exports.generateWeeklyPDF = async (userId, trackData = {}, allHabits = []) => {
     doc.on("end", () => resolve(Buffer.concat(buffers)));
 
     // =========================================================================
-    // PAGE 1: Header Banner + Week at a Glance + Habit Tracker (First 3 Habits)
+    // PAGE 1: Header Banner + Week at a Glance + All Habit Tracker Rows
     // =========================================================================
 
     // Top Dark Banner
-    doc.rect(0, 0, doc.page.width, 200).fill("#1c1815");
+    doc.rect(0, 0, doc.page.width, 185).fill("#1c1815");
 
     // Brand Name
-    doc.font("Times-Roman").fontSize(13).fillColor("#dfd7cb").text("life·track", 42, 34);
+    doc.font("Times-Roman").fontSize(13).fillColor("#dfd7cb").text("life·track", 42, 30);
 
     // Pill Badge: WEEKLY REPORT
-    doc.roundedRect(doc.page.width - 152, 30, 110, 22, 11).lineWidth(0.8).stroke("#4d3f35");
-    doc.font("Helvetica-Bold").fontSize(7.5).fillColor("#c5a073").text("WEEKLY REPORT", doc.page.width - 152, 37, { width: 110, align: "center", characterSpacing: 1.2 });
+    doc.roundedRect(doc.page.width - 152, 28, 110, 22, 11).lineWidth(0.8).stroke("#4d3f35");
+    doc.font("Helvetica-Bold").fontSize(7.5).fillColor("#c5a073").text("WEEKLY REPORT", doc.page.width - 152, 35, { width: 110, align: "center", characterSpacing: 1.2 });
 
     // Decorative Arc
     doc.save();
     doc.lineWidth(0.8).strokeColor("#2f2722");
-    doc.moveTo(doc.page.width * 0.45, 0).bezierCurveTo(doc.page.width * 0.55, 110, doc.page.width * 0.8, 175, doc.page.width, 175).stroke();
+    doc.moveTo(doc.page.width * 0.45, 0).bezierCurveTo(doc.page.width * 0.55, 100, doc.page.width * 0.8, 160, doc.page.width, 160).stroke();
     doc.restore();
 
     // Main Title: Wellness Report
-    doc.font("Times-Roman").fontSize(34).fillColor("#f7f4ed").text("Wellness", 42, 78);
-    doc.font("Times-Italic").fontSize(34).fillColor("#c8a27a").text("Report", 42, 116);
-    doc.font("Helvetica").fontSize(7.5).fillColor("#8a7e72").text("PERSONAL HEALTH & HABIT SUMMARY", 42, 158, { characterSpacing: 1.4 });
+    doc.font("Times-Roman").fontSize(32).fillColor("#f7f4ed").text("Wellness", 42, 68);
+    doc.font("Times-Italic").fontSize(32).fillColor("#c8a27a").text("Report", 42, 104);
+    doc.font("Helvetica").fontSize(7.5).fillColor("#8a7e72").text("PERSONAL HEALTH & HABIT SUMMARY", 42, 142, { characterSpacing: 1.4 });
 
     // 3-Column Metadata Bar
-    const metaY = 176;
+    const metaY = 160;
     doc.font("Helvetica-Bold").fontSize(6).fillColor("#8a7e72").text("MEMBER", 42, metaY, { characterSpacing: 1.2 });
     doc.font("Times-Roman").fontSize(10).fillColor("#f7f4ed").text(memberName, 42, metaY + 8);
 
@@ -257,15 +252,15 @@ exports.generateWeeklyPDF = async (userId, trackData = {}, allHabits = []) => {
     doc.font("Helvetica-Bold").fontSize(6).fillColor("#8a7e72").text("GENERATED", 268, metaY, { characterSpacing: 1.2 });
     doc.font("Times-Roman").fontSize(10).fillColor("#f7f4ed").text(generatedFormatted, 268, metaY + 8);
 
-    let curY = 230;
+    let curY = 212;
 
     // SECTION 1: OVERVIEW / Week at a Glance
     doc.font("Helvetica-Bold").fontSize(7).fillColor("#8a7e72").text("OVERVIEW", 42, curY, { characterSpacing: 1.8 });
     curY += 12;
     doc.font("Times-Roman").fontSize(19).fillColor("#1c1815").text("Week at a Glance", 42, curY);
-    curY += 26;
+    curY += 24;
 
-    // 4-Column Stat Box (Exact Spacing & Proportion)
+    // 4-Column Stat Box (Zero overlap, perfect kerning & alignment)
     const boxW = doc.page.width - 84;
     const boxH = 66;
     doc.roundedRect(42, curY, boxW, boxH, 6).lineWidth(0.6).stroke("#e5e0d8");
@@ -273,8 +268,7 @@ exports.generateWeeklyPDF = async (userId, trackData = {}, allHabits = []) => {
     const statColW = boxW / 4;
 
     // Col 1: Habit Completion
-    doc.font("Times-Roman").fontSize(20).fillColor("#1c1815").text(`${overallHabitRate}`, 42, curY + 14, { width: statColW - 12, align: "center", continued: true });
-    doc.font("Times-Roman").fontSize(11).text(" %");
+    doc.font("Times-Roman").fontSize(20).fillColor("#1c1815").text(`${overallHabitRate}%`, 42, curY + 14, { width: statColW, align: "center" });
     doc.font("Helvetica-Bold").fontSize(6.5).fillColor("#8a7e72").text("HABIT COMPLETION", 42, curY + 42, { width: statColW, align: "center", characterSpacing: 0.8 });
 
     // Col 2: Best Streak
@@ -282,106 +276,85 @@ exports.generateWeeklyPDF = async (userId, trackData = {}, allHabits = []) => {
     doc.font("Helvetica-Bold").fontSize(6.5).fillColor("#8a7e72").text("BEST STREAK", 42 + statColW, curY + 42, { width: statColW, align: "center", characterSpacing: 0.8 });
 
     // Col 3: Avg Daily Intake
-    doc.font("Times-Roman").fontSize(20).fillColor("#1c1815").text(`${avgCals}`, 42 + statColW * 2, curY + 14, { width: statColW - 16, align: "center", continued: true });
-    doc.font("Times-Roman").fontSize(11).text(" kcal");
+    doc.font("Times-Roman").fontSize(20).fillColor("#1c1815").text(`${avgCals} kcal`, 42 + statColW * 2, curY + 14, { width: statColW, align: "center" });
     doc.font("Helvetica-Bold").fontSize(6.5).fillColor("#8a7e72").text("AVG DAILY INTAKE", 42 + statColW * 2, curY + 42, { width: statColW, align: "center", characterSpacing: 0.8 });
 
     // Col 4: Total Steps
-    doc.font("Times-Roman").fontSize(20).fillColor("#1c1815").text("0", 42 + statColW * 3, curY + 14, { width: statColW - 16, align: "center", continued: true });
-    doc.font("Times-Roman").fontSize(11).text(" steps");
+    doc.font("Times-Roman").fontSize(20).fillColor("#1c1815").text("0 steps", 42 + statColW * 3, curY + 14, { width: statColW, align: "center" });
     doc.font("Helvetica-Bold").fontSize(6.5).fillColor("#8a7e72").text("TOTAL STEPS", 42 + statColW * 3, curY + 42, { width: statColW, align: "center", characterSpacing: 0.8 });
 
-    curY += boxH + 28;
+    curY += boxH + 24;
 
     // Divider
     doc.moveTo(42, curY).lineTo(doc.page.width - 42, curY).lineWidth(0.5).stroke("#e5e0d8");
-    curY += 20;
+    curY += 18;
 
-    // SECTION 2: DAILY HABITS / Habit Tracker (Part 1)
+    // SECTION 2: DAILY HABITS / Habit Tracker (All 5 Habits fit onto Page 1)
     doc.font("Helvetica-Bold").fontSize(7).fillColor("#8a7e72").text("DAILY HABITS", 42, curY, { characterSpacing: 1.8 });
     curY += 12;
     doc.font("Times-Roman").fontSize(19).fillColor("#1c1815").text("Habit Tracker", 42, curY);
-    curY += 26;
+    curY += 24;
 
     // Table Header
-    const renderTableHeader = (yPos) => {
-      doc.font("Helvetica-Bold").fontSize(6.5).fillColor("#8a7e72");
-      doc.text("HABIT", 42, yPos, { characterSpacing: 1 });
-      let dayX = 172;
-      ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"].forEach(d => {
-        doc.text(d, dayX, yPos, { width: 32, align: "center", characterSpacing: 0.6 });
-        dayX += 36;
-      });
-      doc.text("RATE", dayX + 8, yPos, { characterSpacing: 1 });
-      doc.text("STREAK", dayX + 48, yPos, { characterSpacing: 1 });
+    doc.font("Helvetica-Bold").fontSize(6.5).fillColor("#8a7e72");
+    doc.text("HABIT", 42, curY, { characterSpacing: 1 });
+    let dayX = 172;
+    ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"].forEach(d => {
+      doc.text(d, dayX, curY, { width: 32, align: "center", characterSpacing: 0.6 });
+      dayX += 36;
+    });
+    doc.text("RATE", dayX + 8, curY, { characterSpacing: 1 });
+    doc.text("STREAK", dayX + 48, curY, { characterSpacing: 1 });
 
-      yPos += 12;
-      doc.moveTo(42, yPos).lineTo(doc.page.width - 42, yPos).lineWidth(0.5).stroke("#e5e0d8");
-      return yPos + 14;
-    };
+    curY += 12;
+    doc.moveTo(42, curY).lineTo(doc.page.width - 42, curY).lineWidth(0.5).stroke("#e5e0d8");
+    curY += 14;
 
-    curY = renderTableHeader(curY);
-
-    // Habit Row Renderer
-    const renderHabitRow = (h, yPos) => {
+    // Render All Habits on Page 1 seamlessly
+    habitsWithStats.forEach(h => {
       // Icon Box
-      doc.roundedRect(42, yPos + 2, 22, 22, 5).lineWidth(0.6).stroke("#e0dacf");
-      drawVectorIcon(h.iconType, 42 + 11, yPos + 13);
+      doc.roundedRect(42, curY + 2, 22, 22, 5).lineWidth(0.6).stroke("#e0dacf");
+      drawVectorIcon(h.iconType, 42 + 11, curY + 13);
 
       // Name & Subtitle
-      doc.font("Helvetica-Bold").fontSize(9).fillColor("#1c1815").text(h.name, 72, yPos + 1, { width: 90, lineGap: 1 });
-      doc.font("Helvetica").fontSize(7).fillColor("#8a7e72").text(h.sub, 72, yPos + 24, { width: 90, lineGap: 1 });
+      doc.font("Helvetica-Bold").fontSize(9).fillColor("#1c1815").text(h.name, 72, curY + 1, { width: 90 });
+      doc.font("Helvetica").fontSize(7).fillColor("#8a7e72").text(h.sub, 72, curY + 14, { width: 90, lineGap: 1 });
 
       // 7 Day Status Badges
-      let dayX = 172;
+      let dX = 172;
       h.days.forEach(d => {
         const bw = 24;
         const bh = 22;
         if (d.future) {
-          doc.roundedRect(dayX + 4, yPos + 6, bw, bh, 4).fillAndStroke("#f8f7f5", "#ede8e1");
-          drawDash(dayX + 4, yPos + 6, bw, bh);
+          doc.roundedRect(dX + 4, curY + 4, bw, bh, 4).fillAndStroke("#f8f7f5", "#ede8e1");
+          drawDash(dX + 4, curY + 4, bw, bh);
         } else if (d.done) {
-          doc.roundedRect(dayX + 4, yPos + 6, bw, bh, 4).fillAndStroke("#edf6ed", "#d5ebd5");
-          drawCheckmark(dayX + 4, yPos + 6, bw, bh);
+          doc.roundedRect(dX + 4, curY + 4, bw, bh, 4).fillAndStroke("#edf6ed", "#d5ebd5");
+          drawCheckmark(dX + 4, curY + 4, bw, bh);
         } else {
-          doc.roundedRect(dayX + 4, yPos + 6, bw, bh, 4).fillAndStroke("#fcf0f0", "#f5d5d5");
-          drawCross(dayX + 4, yPos + 6, bw, bh);
+          doc.roundedRect(dX + 4, curY + 4, bw, bh, 4).fillAndStroke("#fcf0f0", "#f5d5d5");
+          drawCross(dX + 4, curY + 4, bw, bh);
         }
-        dayX += 36;
+        dX += 36;
       });
 
       // Rate
-      doc.font("Helvetica-Bold").fontSize(9).fillColor("#1c1815").text(`${h.rate}%`, dayX + 10, yPos + 11);
+      doc.font("Helvetica-Bold").fontSize(9).fillColor("#1c1815").text(`${h.rate}%`, dX + 10, curY + 9);
 
       // Streak (Flame + Count)
-      drawFlame(dayX + 54, yPos + 8);
-      doc.font("Helvetica").fontSize(8).fillColor("#8a7e72").text(`${h.maxStreak}`, dayX + 47, yPos + 16, { width: 14, align: "center" });
+      drawFlame(dX + 54, curY + 6);
+      doc.font("Helvetica").fontSize(8).fillColor("#8a7e72").text(`${h.maxStreak}`, dX + 47, curY + 14, { width: 14, align: "center" });
 
-      yPos += 54;
-      doc.moveTo(42, yPos).lineTo(doc.page.width - 42, yPos).lineWidth(0.5).stroke("#f0ece5");
-      return yPos + 14;
-    };
-
-    // Render First 3 Habits on Page 1
-    const p1Habits = habitsWithStats.slice(0, 3);
-    p1Habits.forEach(h => {
-      curY = renderHabitRow(h, curY);
+      curY += 46;
+      doc.moveTo(42, curY).lineTo(doc.page.width - 42, curY).lineWidth(0.5).stroke("#f0ece5");
+      curY += 12;
     });
 
     // =========================================================================
-    // PAGE 2: Remaining Habits + Calorie Summary + Health Indicators
+    // PAGE 2: Calorie Summary + Health Indicators + Weekly Insights + Footer
     // =========================================================================
     doc.addPage();
-    curY = 40;
-
-    curY = renderTableHeader(curY);
-
-    const p2Habits = habitsWithStats.slice(3);
-    p2Habits.forEach(h => {
-      curY = renderHabitRow(h, curY);
-    });
-
-    curY += 10;
+    curY = 38;
 
     // SECTION 3: NUTRITION / Calorie Summary
     doc.font("Helvetica-Bold").fontSize(7).fillColor("#8a7e72").text("NUTRITION", 42, curY, { characterSpacing: 1.8 });
@@ -390,16 +363,15 @@ exports.generateWeeklyPDF = async (userId, trackData = {}, allHabits = []) => {
     curY += 24;
 
     const calCardW = (doc.page.width - 100) / 2;
-    const calCardH = 88;
+    const calCardH = 92;
 
     // Card 1: Daily Calories Consumed
     doc.roundedRect(42, curY, calCardW, calCardH, 6).lineWidth(0.6).stroke("#e5e0d8");
-    doc.font("Helvetica-Bold").fontSize(6.5).fillColor("#8a7e72").text("DAILY CALORIES CONSUMED", 54, curY + 12, { characterSpacing: 0.8 });
-    doc.font("Times-Roman").fontSize(18).fillColor("#1c1815").text(`${avgCals}`, 54, curY + 28, { continued: true });
-    doc.font("Times-Roman").fontSize(10).fillColor("#8a7e72").text(" kcal avg");
+    doc.font("Helvetica-Bold").fontSize(6.5).fillColor("#8a7e72").text("DAILY CALORIES CONSUMED", 54, curY + 13, { characterSpacing: 0.8 });
+    doc.font("Times-Roman").fontSize(18).fillColor("#1c1815").text(`${avgCals} kcal avg`, 54, curY + 30);
 
     // Mini 7-day bars for consumed
-    const barBaseY1 = curY + 64;
+    const barBaseY1 = curY + 66;
     let barX1 = 54;
     const daysLetter = ["M", "T", "W", "T", "F", "S", "S"];
     daysLetter.forEach((l) => {
@@ -411,18 +383,17 @@ exports.generateWeeklyPDF = async (userId, trackData = {}, allHabits = []) => {
     // Card 2: Net Calories (Deficit / Surplus)
     const card2X = 42 + calCardW + 16;
     doc.roundedRect(card2X, curY, calCardW, calCardH, 6).lineWidth(0.6).stroke("#e5e0d8");
-    doc.font("Helvetica-Bold").fontSize(6.5).fillColor("#8a7e72").text("NET CALORIES (DEFICIT / SURPLUS)", card2X + 12, curY + 12, { characterSpacing: 0.8 });
+    doc.font("Helvetica-Bold").fontSize(6.5).fillColor("#8a7e72").text("NET CALORIES (DEFICIT / SURPLUS)", card2X + 12, curY + 13, { characterSpacing: 0.8 });
 
     let netCalsDisplay = "0";
     if (tdeeVal > 0 && foodDaysCount > 0) {
       const diff = avgCals - tdeeVal;
       netCalsDisplay = diff > 0 ? `+${diff}` : `${diff}`;
     }
-    doc.font("Times-Roman").fontSize(18).fillColor("#1c1815").text(`${netCalsDisplay}`, card2X + 12, curY + 28, { continued: true });
-    doc.font("Times-Roman").fontSize(10).fillColor("#8a7e72").text(" kcal avg");
+    doc.font("Times-Roman").fontSize(18).fillColor("#1c1815").text(`${netCalsDisplay} kcal avg`, card2X + 12, curY + 30);
 
     // Mini 7-day bars for net
-    const barBaseY2 = curY + 64;
+    const barBaseY2 = curY + 66;
     let barX2 = card2X + 12;
     daysLetter.forEach((l) => {
       doc.roundedRect(barX2, barBaseY2 - 5, 18, 3.5, 1.5).fill("#b8997a");
@@ -430,11 +401,11 @@ exports.generateWeeklyPDF = async (userId, trackData = {}, allHabits = []) => {
       barX2 += 25;
     });
 
-    curY += calCardH + 28;
+    curY += calCardH + 24;
 
     // Divider
     doc.moveTo(42, curY).lineTo(doc.page.width - 42, curY).lineWidth(0.5).stroke("#e5e0d8");
-    curY += 20;
+    curY += 18;
 
     // SECTION 4: BODY METRICS / Health Indicators
     doc.font("Helvetica-Bold").fontSize(7).fillColor("#8a7e72").text("BODY METRICS", 42, curY, { characterSpacing: 1.8 });
@@ -443,15 +414,15 @@ exports.generateWeeklyPDF = async (userId, trackData = {}, allHabits = []) => {
     curY += 24;
 
     const indCardW = (doc.page.width - 104) / 3;
-    const indCardH = 66;
+    const indCardH = 68;
 
     const indMetrics = [
-      { title: "BMI", val: `${bmiVal}`, sub: bmiLabel, unit: "" },
-      { title: "WEIGHT", val: `${weightVal}`, sub: "Current", unit: " kg" },
-      { title: "HEIGHT", val: `${heightVal}`, sub: "—", unit: " cm" },
-      { title: "BMR", val: `${bmrVal.toLocaleString()}`, sub: "Resting burn", unit: " kcal" },
-      { title: "TDEE", val: `${tdeeVal.toLocaleString()}`, sub: "Total expenditure", unit: " kcal" },
-      { title: "AVG STEPS/DAY", val: "0", sub: "Weekly average", unit: "" }
+      { title: "BMI", val: `${bmiVal}`, sub: bmiLabel },
+      { title: "WEIGHT", val: `${weightVal} kg`, sub: "Current" },
+      { title: "HEIGHT", val: `${heightVal} cm`, sub: "—" },
+      { title: "BMR", val: `${bmrVal.toLocaleString()} kcal`, sub: "Resting burn" },
+      { title: "TDEE", val: `${tdeeVal.toLocaleString()} kcal`, sub: "Total expenditure" },
+      { title: "AVG STEPS/DAY", val: "0 steps", sub: "Weekly average" }
     ];
 
     indMetrics.forEach((m, idx) => {
@@ -462,30 +433,22 @@ exports.generateWeeklyPDF = async (userId, trackData = {}, allHabits = []) => {
 
       doc.roundedRect(cardX, cardY, indCardW, indCardH, 6).lineWidth(0.6).stroke("#e5e0d8");
       doc.font("Helvetica-Bold").fontSize(6.5).fillColor("#8a7e72").text(m.title, cardX + 12, cardY + 10, { characterSpacing: 0.8 });
-
-      doc.font("Times-Roman").fontSize(17).fillColor("#1c1815").text(m.val, cardX + 12, cardY + 24, { continued: true });
-      if (m.unit) {
-        doc.font("Times-Roman").fontSize(10).fillColor("#666").text(m.unit);
-      } else {
-        doc.text("");
-      }
-
-      doc.font("Helvetica").fontSize(7.5).fillColor("#8a7e72").text(m.sub, cardX + 12, cardY + 47);
+      doc.font("Times-Roman").fontSize(17).fillColor("#1c1815").text(m.val, cardX + 12, cardY + 25);
+      doc.font("Helvetica").fontSize(7.5).fillColor("#8a7e72").text(m.sub, cardX + 12, cardY + 48);
     });
 
-    // =========================================================================
-    // PAGE 3: Analysis & Weekly Insights (Header + Cards grouped together)
-    // =========================================================================
-    doc.addPage();
-    curY = 40;
+    curY += 2 * indCardH + 28;
 
-    // SECTION 5: ANALYSIS / Weekly Insights
+    // Divider
+    doc.moveTo(42, curY).lineTo(doc.page.width - 42, curY).lineWidth(0.5).stroke("#e5e0d8");
+    curY += 18;
+
+    // SECTION 5: ANALYSIS / Weekly Insights (Placed cleanly on Page 2 together with its cards)
     doc.font("Helvetica-Bold").fontSize(7).fillColor("#8a7e72").text("ANALYSIS", 42, curY, { characterSpacing: 1.8 });
     curY += 12;
     doc.font("Times-Roman").fontSize(19).fillColor("#1c1815").text("Weekly Insights", 42, curY);
     curY += 24;
 
-    // Dynamic Insights matching reference text
     let habitInsight = "Room for improvement. You hit 0% completion. Try focusing on your easiest habits first to build momentum.";
     if (overallHabitRate === 100) {
       habitInsight = "Outstanding performance! You hit 100% completion across all your daily wellness habits this week.";
@@ -510,16 +473,16 @@ exports.generateWeeklyPDF = async (userId, trackData = {}, allHabits = []) => {
 
     insightsList.forEach(text => {
       const cardW = doc.page.width - 84;
-      doc.roundedRect(42, curY, cardW, 44, 6).lineWidth(0.6).stroke("#e5e0d8");
-      doc.font("Helvetica").fontSize(9).fillColor("#241e1b").text(text, 56, curY + 13, { width: cardW - 28, lineGap: 2.5 });
-      curY += 56;
+      doc.roundedRect(42, curY, cardW, 42, 6).lineWidth(0.6).stroke("#e5e0d8");
+      doc.font("Helvetica").fontSize(8.5).fillColor("#241e1b").text(text, 56, curY + 12, { width: cardW - 28, lineGap: 2 });
+      curY += 52;
     });
 
-    curY += 24;
+    curY += 14;
 
     // Divider
     doc.moveTo(42, curY).lineTo(doc.page.width - 42, curY).lineWidth(0.5).stroke("#e5e0d8");
-    curY += 28;
+    curY += 18;
 
     // Bottom Footer
     doc.font("Times-Roman").fontSize(13).fillColor("#6e6358").text("life·track", 42, curY);
