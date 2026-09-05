@@ -37,6 +37,17 @@ module.exports = async (req, res) => {
     });
   }
 
+  if (!to) {
+    return res.status(400).json({ error: "Recipient 'to' email address is required" });
+  }
+
+  // Ensure recipient is a single clean string
+  const recipient = (Array.isArray(to) ? to[0] : String(to)).trim().toLowerCase();
+
+  if (!recipient || !recipient.includes("@")) {
+    return res.status(400).json({ error: `Invalid recipient email address: ${to}` });
+  }
+
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
@@ -48,17 +59,17 @@ module.exports = async (req, res) => {
   try {
     const info = await transporter.sendMail({
       from: `"LifeTrack" <${emailUser}>`,
-      to,
+      to: recipient, // Strictly only this recipient
       subject,
       text,
       html,
       attachments,
     });
 
-    console.log("Email sent successfully to:", to);
-    return res.status(200).json({ success: true, messageId: info.messageId });
+    console.log(`[Email Microservice] Email sent strictly to: ${recipient} (Message ID: ${info.messageId})`);
+    return res.status(200).json({ success: true, messageId: info.messageId, recipient });
   } catch (error) {
-    console.error("Vercel mailer error:", error);
+    console.error("[Email Microservice] Error:", error);
     return res.status(500).json({ error: error.message || "Failed to send email" });
   }
 };

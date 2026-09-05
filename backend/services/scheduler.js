@@ -28,10 +28,10 @@ cron.schedule("* * * * *", async () => {
   try {
     // 🔔 DAILY REMINDERS (Match either IST or UTC time format e.g. "21:50")
     const [reminders] = await db.query(
-      `SELECT r.*, u.email, u.username
+      `SELECT r.id, r.user_id, r.habit_name, r.time, u.email, u.username
        FROM reminders r
-       JOIN users u ON r.user_id = u.id
-       WHERE TRIM(r.time) = ? OR TRIM(r.time) = ?`,
+       INNER JOIN users u ON r.user_id = u.id
+       WHERE (TRIM(r.time) = ? OR TRIM(r.time) = ?) AND u.email IS NOT NULL`,
       [istTime, utcTime],
     );
 
@@ -41,28 +41,30 @@ cron.schedule("* * * * *", async () => {
 
     const sentReminders = new Set();
     for (let r of reminders) {
-      if (!r.email) continue;
+      const userEmail = String(r.email || "").trim().toLowerCase();
+      if (!userEmail) continue;
+
       const dedupeKey = `${r.user_id}_${r.id}_${r.time}`;
       if (sentReminders.has(dedupeKey)) continue;
       sentReminders.add(dedupeKey);
 
       const htmlContent = getReminderEmailHtml(r.habit_name, false);
       await sendEmail({
-        to: r.email,
+        to: userEmail,
         subject: `LifeTrack Reminder: ${r.habit_name}`,
         text: `Reminder: ${r.habit_name} - Stay consistent with your daily wellness routine!`,
         html: htmlContent,
       });
-      console.log(`[Scheduler] ✅ Reminder for "${r.habit_name}" successfully sent to ${r.email}`);
+      console.log(`[Scheduler] ✅ Reminder for "${r.habit_name}" sent strictly to ${userEmail} (User: ${r.username || r.user_id})`);
     }
 
     // 📅 WEEKLY TASKS
     const [weekly] = await db.query(
-      `SELECT w.*, u.email, u.username
+      `SELECT w.id, w.user_id, w.name, w.day, w.reminder_time, u.email, u.username
        FROM weekly_tasks w
-       JOIN users u ON w.user_id = u.id
-       WHERE (TRIM(w.day) = ? AND TRIM(w.reminder_time) = ?)
-          OR (TRIM(w.day) = ? AND TRIM(w.reminder_time) = ?)`,
+       INNER JOIN users u ON w.user_id = u.id
+       WHERE ((TRIM(w.day) = ? AND TRIM(w.reminder_time) = ?)
+          OR (TRIM(w.day) = ? AND TRIM(w.reminder_time) = ?)) AND u.email IS NOT NULL`,
       [istDay, istTime, utcDay, utcTime],
     );
 
@@ -72,19 +74,21 @@ cron.schedule("* * * * *", async () => {
 
     const sentWeekly = new Set();
     for (let t of weekly) {
-      if (!t.email) continue;
+      const userEmail = String(t.email || "").trim().toLowerCase();
+      if (!userEmail) continue;
+
       const dedupeKey = `${t.user_id}_${t.id}_${t.reminder_time}`;
       if (sentWeekly.has(dedupeKey)) continue;
       sentWeekly.add(dedupeKey);
 
       const htmlContent = getReminderEmailHtml(t.name, true);
       await sendEmail({
-        to: t.email,
+        to: userEmail,
         subject: `LifeTrack Weekly Task: ${t.name}`,
         text: `Weekly Task: ${t.name} - Today is ${t.day}!`,
         html: htmlContent,
       });
-      console.log(`[Scheduler] ✅ Weekly task reminder for "${t.name}" sent to ${t.email}`);
+      console.log(`[Scheduler] ✅ Weekly task reminder for "${t.name}" sent strictly to ${userEmail} (User: ${t.username || t.user_id})`);
     }
   } catch (err) {
     console.error("[Scheduler] Error checking reminders:", err);
@@ -96,18 +100,19 @@ cron.schedule("0 18 * * 0", async () => {
   console.log("[Scheduler] Running Sunday weekly auto email report...");
 
   try {
-    const [users] = await db.query("SELECT id, email FROM users");
+    const [users] = await db.query("SELECT id, email, username FROM users WHERE email IS NOT NULL");
 
     for (let user of users) {
-      if (!user.email) continue;
+      const userEmail = String(user.email || "").trim().toLowerCase();
+      if (!userEmail) continue;
 
       try {
         const pdfBuffer = await generateWeeklyPDF(user.id);
 
         await sendEmail({
-          to: user.email,
+          to: userEmail,
           subject: "Your LifeTrack Weekly Wellness Report 📊",
-          text: "Attached is your weekly progress report from LifeTrack.",
+          text: `Hello ${user.username || "there"}, attached is your weekly progress report from LifeTrack!`,
           attachments: [
             {
               filename: "LifeTrack - Weekly Report.pdf",
@@ -115,9 +120,9 @@ cron.schedule("0 18 * * 0", async () => {
             },
           ],
         });
-        console.log(`[Scheduler] Weekly PDF report sent to ${user.email}`);
+        console.log(`[Scheduler] Weekly PDF report sent strictly to ${userEmail}`);
       } catch (userErr) {
-        console.error(`[Scheduler] Failed generating report for user ${user.id}:`, userErr);
+        console.error(`[Scheduler] Failed generating report for user ${user.id} (${userEmail}):`, userErr);
       }
     }
   } catch (err) {

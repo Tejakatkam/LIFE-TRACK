@@ -3,6 +3,9 @@ const nodemailer = require("nodemailer");
 
 exports.sendEmail = async ({ to, subject, text, html, attachments = [] }) => {
   try {
+    if (!to) throw new Error("Recipient 'to' email address is required");
+    const cleanTo = (Array.isArray(to) ? to[0] : String(to)).trim().toLowerCase();
+
     const mailServiceUrl = process.env.MAIL_SERVICE_URL;
 
     // 1. If Vercel Microservice URL is configured, use it (bypasses Render SMTP block)
@@ -22,7 +25,7 @@ exports.sendEmail = async ({ to, subject, text, html, attachments = [] }) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          to,
+          to: cleanTo,
           subject,
           text,
           html,
@@ -36,7 +39,7 @@ exports.sendEmail = async ({ to, subject, text, html, attachments = [] }) => {
         throw new Error(result.error || "Failed to send email via Mail Service");
       }
 
-      console.log("Email sent successfully via Vercel Mail Service to:", to);
+      console.log(`[Email Service] Email dispatched strictly to: ${cleanTo}`);
       return result;
     }
 

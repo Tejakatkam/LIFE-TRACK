@@ -5,10 +5,18 @@ const jwt = require("jsonwebtoken");
 const { sendEmail } = require("../services/emailService");
 
 const sendVerification = async (req, res) => {
-  const { username, email } = req.body;
+  const username = String(req.body.username || "").trim();
+  const email = String(req.body.email || "").trim().toLowerCase();
+
+  if (!username || !email) {
+    return res.status(400).json({ message: "Username and email are required" });
+  }
 
   try {
-    const [existing] = await db.query("SELECT id FROM users WHERE username = ? OR email = ?", [username, email]);
+    const [existing] = await db.query(
+      "SELECT id FROM users WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)",
+      [username, email]
+    );
     if (existing.length > 0) {
       return res.status(400).json({ message: "Username or email already exists" });
     }
@@ -16,7 +24,7 @@ const sendVerification = async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     
     await sendEmail({
-      to: email,
+      to: email, // Strictly sends to the registered user's email only
       subject: "LifeTrack - Your Verification Code",
       text: `Welcome to LifeTrack! Your verification code is: ${otp}`,
       html: `
@@ -24,14 +32,14 @@ const sendVerification = async (req, res) => {
           <h1 style="color: #c19c72;">life · track</h1>
           <p>Welcome, ${username}!</p>
           <p>Your verification code is:</p>
-          <h2 style="background-color: #2b2520; padding: 15px; border-radius: 4px; display: inline-block; letter-spacing: 4px;">${otp}</h2>
+          <h2 style="background-color: #2b2520; padding: 15px; border-radius: 4px; display: inline-block; letter-spacing: 4px; color: #f5f0e6;">${otp}</h2>
           <p>Enter this code to complete your registration.</p>
         </div>
       `
     });
 
     const otpToken = jwt.sign(
-      { ...req.body, otp },
+      { ...req.body, username, email, otp },
       process.env.JWT_SECRET || "SECRET_KEY",
       { expiresIn: "15m" }
     );
