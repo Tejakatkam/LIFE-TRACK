@@ -95,7 +95,11 @@ export default function FoodTab({ currentUser }) {
 
   const handleEstimateFoodAi = async () => {
     if (!foodAiQuery.trim()) {
-      setFoodAiErr("Please describe what food you ate.");
+      setFoodAiErr("Please enter the food name.");
+      return;
+    }
+    if (!foodAiGrams || isNaN(foodAiGrams) || Number(foodAiGrams) <= 0) {
+      setFoodAiErr("Please enter the amount in grams (e.g. 150).");
       return;
     }
     setFoodAiLoading(true);
@@ -113,7 +117,7 @@ export default function FoodTab({ currentUser }) {
         },
         body: JSON.stringify({ 
           query: foodAiQuery.trim(),
-          grams: foodAiGrams.trim()
+          grams: `${foodAiGrams.trim()}g`
         })
       });
 
@@ -618,39 +622,39 @@ export default function FoodTab({ currentUser }) {
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10 }}>
-                  <div className="form-field">
-                    <label>What did you eat?</label>
+                <div className="form-row">
+                  <div className="form-field f-name">
+                    <label>Food name</label>
                     <input 
                       className="inp" 
-                      placeholder='e.g. "Chicken Biryani" or "2 dosas and sambar"'
+                      placeholder="e.g. Rice, Paneer Curry, Chicken, Dosa..." 
                       value={foodAiQuery}
-                      onChange={e => setFoodAiQuery(e.target.value)}
-                      onKeyDown={e => e.key === "Enter" && handleEstimateFoodAi()}
+                      onChange={e => setFoodAiQuery(e.target.value)} 
+                      onKeyDown={e => e.key === "Enter" && handleEstimateFoodAi()} 
                     />
                   </div>
-                  <div className="form-field">
-                    <label>Amount / Grams (Optional)</label>
+                  <div className="form-field f-num">
+                    <label>Grams</label>
                     <input 
                       className="inp" 
-                      placeholder='e.g. "250g" or "1 bowl"'
-                      value={foodAiGrams}
-                      onChange={e => setFoodAiGrams(e.target.value)}
-                      onKeyDown={e => e.key === "Enter" && handleEstimateFoodAi()}
+                      type="number" 
+                      placeholder="100" 
+                      value={foodAiGrams} 
+                      onChange={e => setFoodAiGrams(e.target.value)} 
+                      onKeyDown={e => e.key === "Enter" && handleEstimateFoodAi()} 
                     />
                   </div>
+                  <button 
+                    className="add-btn" 
+                    style={{ minWidth: 160, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                    onClick={handleEstimateFoodAi}
+                    disabled={foodAiLoading}
+                  >
+                    {foodAiLoading ? "Estimating..." : "✦ Estimate Calories"}
+                  </button>
                 </div>
 
-                <button 
-                  className="add-btn" 
-                  style={{ width: "100%", height: 42, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-                  onClick={handleEstimateFoodAi}
-                  disabled={foodAiLoading}
-                >
-                  {foodAiLoading ? "Analyzing Nutritional Content..." : "✦ Estimate Calories with AI"}
-                </button>
-
-                {foodAiErr && <div className="err">{foodAiErr}</div>}
+                {foodAiErr && <div className="err" style={{ marginTop: 2 }}>{foodAiErr}</div>}
 
                 {/* AI Food Result Preview */}
                 {foodAiResult && (
