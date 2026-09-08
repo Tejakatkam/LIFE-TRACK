@@ -23,14 +23,56 @@ exports.updateProfile = async (req, res) => {
 
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
+let cachedGroqModel = null;
+let cachedGeminiModel = null;
+
 const callGroq = async (apiKey, prompt, isJson = false) => {
   const cleanKey = String(apiKey || "").trim().replace(/^["']|["']$/g, "");
   if (!cleanKey) throw new Error("Empty Groq API Key");
 
-  const groqModels = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
+  // Step 1: Discover available models if not already cached
+  let modelsToTry = cachedGroqModel ? [cachedGroqModel] : [];
+
+  if (modelsToTry.length === 0) {
+    try {
+      const modelsRes = await fetch("https://api.groq.com/openai/v1/models", {
+        headers: { "Authorization": `Bearer ${cleanKey}` }
+      });
+      if (modelsRes.ok) {
+        const data = await modelsRes.json();
+        if (Array.isArray(data?.data)) {
+          const activeIds = data.data
+            .map(m => m.id)
+            .filter(id => !id.includes("whisper") && !id.includes("guard"));
+          // Sort to prioritize highest-quality / fastest models
+          activeIds.sort((a, b) => {
+            const score = id => (id.includes("70b") ? 6 : id.includes("8b") ? 5 : id.includes("llama") ? 4 : id.includes("mixtral") ? 3 : 1);
+            return score(b) - score(a);
+          });
+          modelsToTry.push(...activeIds);
+        }
+      }
+    } catch (discoveryErr) {
+      console.warn("[Groq Discovery Notice]", discoveryErr.message);
+    }
+  }
+
+  const fallbackCandidates = [
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+    "llama3-70b-8192",
+    "llama3-8b-8192",
+    "mixtral-8x7b-32768",
+    "gemma2-9b-it",
+    "llama-3.2-3b-preview",
+    "llama-3.2-1b-preview",
+    "deepseek-r1-distill-llama-70b"
+  ];
+  modelsToTry = [...new Set([...modelsToTry, ...fallbackCandidates])];
+
   let lastError = null;
 
-  for (const model of groqModels) {
+  for (const model of modelsToTry) {
     try {
       const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
@@ -61,7 +103,10 @@ const callGroq = async (apiKey, prompt, isJson = false) => {
       if (response.ok) {
         const data = await response.json();
         const content = data?.choices?.[0]?.message?.content;
-        if (content) return content.trim();
+        if (content) {
+          cachedGroqModel = model;
+          return content.trim();
+        }
       } else {
         const errJson = await response.json().catch(() => ({}));
         console.warn(`[Groq AI ${model} Error]`, response.status, errJson?.error?.message || response.statusText);
@@ -79,18 +124,42 @@ const callGemini = async (apiKey, prompt, isJson = false) => {
   const cleanKey = String(apiKey || "").trim().replace(/^["']|["']$/g, "");
   if (!cleanKey) throw new Error("Empty Gemini API Key");
 
-  const fastModels = [
-    "gemini-2.0-flash",
+  let modelsToTry = cachedGeminiModel ? [cachedGeminiModel] : [];
+
+  if (modelsToTry.length === 0) {
+    try {
+      const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`);
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        if (Array.isArray(listData?.models)) {
+          const activeNames = listData.models
+            .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
+            .map(m => m.name.replace(/^models\//, ""));
+          activeNames.sort((a, b) => {
+            const score = id => (id.includes("flash") ? 5 : id.includes("pro") ? 3 : 1);
+            return score(b) - score(a);
+          });
+          modelsToTry.push(...activeNames);
+        }
+      }
+    } catch (e) {
+      console.warn("[Gemini Discovery Notice]", e.message);
+    }
+  }
+
+  const fallbackGemini = [
     "gemini-1.5-flash",
+    "gemini-2.0-flash",
     "gemini-2.0-flash-lite",
-    "gemini-1.5-pro"
+    "gemini-1.5-flash-latest",
+    "gemini-pro"
   ];
+  modelsToTry = [...new Set([...modelsToTry, ...fallbackGemini])];
 
   const genAI = new GoogleGenerativeAI(cleanKey);
   let lastError = null;
 
-  // Step 1: Try ultra-fast models via official SDK directly
-  for (const modelName of fastModels) {
+  for (const modelName of modelsToTry) {
     try {
       const model = genAI.getGenerativeModel({
         model: modelName,
@@ -100,15 +169,18 @@ const callGemini = async (apiKey, prompt, isJson = false) => {
       const result = await model.generateContent(prompt);
       const response = await result.response;
       const text = response.text();
-      if (text) return text.trim();
+      if (text) {
+        cachedGeminiModel = modelName;
+        return text.trim();
+      }
     } catch (e) {
       lastError = e;
     }
   }
 
-  // Step 2: Direct REST fallback across v1beta & v1
+  // Direct REST fallback across v1beta & v1
   for (const apiVersion of ["v1beta", "v1"]) {
-    for (const modelName of fastModels) {
+    for (const modelName of modelsToTry) {
       try {
         const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${modelName}:generateContent?key=${cleanKey}`;
         const response = await fetch(url, {
@@ -123,7 +195,10 @@ const callGemini = async (apiKey, prompt, isJson = false) => {
         if (response.ok) {
           const data = await response.json();
           const candidateText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (candidateText) return candidateText.trim();
+          if (candidateText) {
+            cachedGeminiModel = modelName;
+            return candidateText.trim();
+          }
         }
       } catch (restErr) {
         lastError = restErr;
