@@ -29,7 +29,8 @@ export default function FoodTab({ currentUser }) {
   // Food logging states
   const [foodMode, setFoodMode] = useState("manual"); // 'manual' | 'ai'
   const [fName, setFName] = useState("");
-  const [fGrams, setFGrams] = useState("");
+  const [fPortionAmount, setFPortionAmount] = useState("1");
+  const [fPortionUnit, setFPortionUnit] = useState("pieces");
   const [fCal, setFCal] = useState("");
   const [fProtein, setFProtein] = useState("");
   const [fCarbs, setFCarbs] = useState("");
@@ -38,7 +39,8 @@ export default function FoodTab({ currentUser }) {
   const [showManualMacros, setShowManualMacros] = useState(false);
   
   const [foodAiQuery, setFoodAiQuery] = useState("");
-  const [foodAiGrams, setFoodAiGrams] = useState("");
+  const [foodAiAmount, setFoodAiAmount] = useState("2");
+  const [foodAiUnit, setFoodAiUnit] = useState("pieces");
   const [foodAiLoading, setFoodAiLoading] = useState(false);
   const [foodAiResult, setFoodAiResult] = useState(null);
   const [foodAiErr, setFoodAiErr] = useState("");
@@ -88,12 +90,17 @@ export default function FoodTab({ currentUser }) {
   // Food handlers
   const addFoodManual = () => {
     if (!fName || !fCal) return;
+    const formattedPortion = fPortionUnit === "grams" 
+      ? `${fPortionAmount || 100}g` 
+      : `${fPortionAmount || 1} ${fPortionUnit}`;
+
     const updated = [
       ...foodLog,
       {
         id: Date.now(),
         name: fName.trim(),
-        grams: +fGrams || null,
+        portion: formattedPortion,
+        grams: fPortionUnit === "grams" ? Number(fPortionAmount) : null,
         cal: Math.round(+fCal),
         protein: Math.round(+fProtein) || 0,
         carbs: Math.round(+fCarbs) || 0,
@@ -104,22 +111,26 @@ export default function FoodTab({ currentUser }) {
     ];
     setFoodLog(updated);
     lsSet(`food_${userId}_${viewDay}`, updated);
-    setFName(""); setFGrams(""); setFCal("");
+    setFName(""); setFPortionAmount("1"); setFCal("");
     setFProtein(""); setFCarbs(""); setFFat(""); setFFiber("");
   };
 
   const handleEstimateFoodAi = async () => {
     if (!foodAiQuery.trim()) {
-      setFoodAiErr("Please enter the food name.");
+      setFoodAiErr("Please enter the food name (e.g. Dosa, Rice, Idli).");
       return;
     }
-    if (!foodAiGrams || isNaN(foodAiGrams) || Number(foodAiGrams) <= 0) {
-      setFoodAiErr("Please enter the amount in grams (e.g. 150).");
+    if (!foodAiAmount || isNaN(foodAiAmount) || Number(foodAiAmount) <= 0) {
+      setFoodAiErr("Please enter a valid quantity/amount (e.g. 1, 2, 150).");
       return;
     }
     setFoodAiLoading(true);
     setFoodAiErr("");
     setFoodAiResult(null);
+
+    const formattedPortion = foodAiUnit === "grams" 
+      ? `${foodAiAmount.trim()}g` 
+      : `${foodAiAmount.trim()} ${foodAiUnit}`;
 
     try {
       const BASE_URL = import.meta.env.VITE_API_URL;
@@ -132,7 +143,9 @@ export default function FoodTab({ currentUser }) {
         },
         body: JSON.stringify({ 
           query: foodAiQuery.trim(),
-          grams: `${foodAiGrams.trim()}g`
+          portion: formattedPortion,
+          amount: foodAiAmount.trim(),
+          unit: foodAiUnit
         })
       });
 
@@ -148,12 +161,16 @@ export default function FoodTab({ currentUser }) {
 
   const addFoodFromAi = () => {
     if (!foodAiResult) return;
+    const formattedPortion = foodAiResult.portion || (
+      foodAiUnit === "grams" ? `${foodAiAmount}g` : `${foodAiAmount} ${foodAiUnit}`
+    );
+
     const updated = [
       ...foodLog,
       {
         id: Date.now(),
         name: foodAiResult.name || foodAiQuery.trim(),
-        grams: foodAiResult.portion || (foodAiGrams ? `${foodAiGrams}g` : null),
+        portion: formattedPortion,
         cal: Math.round(Number(foodAiResult.calories) || 200),
         protein: Math.round(Number(foodAiResult.protein) || 0),
         carbs: Math.round(Number(foodAiResult.carbs) || 0),
@@ -165,7 +182,7 @@ export default function FoodTab({ currentUser }) {
     setFoodLog(updated);
     lsSet(`food_${userId}_${viewDay}`, updated);
     setFoodAiQuery("");
-    setFoodAiGrams("");
+    setFoodAiAmount("2");
     setFoodAiResult(null);
   };
 
@@ -775,15 +792,38 @@ export default function FoodTab({ currentUser }) {
                     <label>Food name</label>
                     <input 
                       className="inp" 
-                      placeholder="e.g. Idli, Rice, Apple, Chicken..." 
+                      placeholder="e.g. Dosa, Idli, Rice, Apple..." 
                       value={fName}
                       onChange={e => setFName(e.target.value)} 
                       onKeyDown={e => e.key === "Enter" && addFoodManual()} 
                     />
                   </div>
-                  <div className="form-field f-num">
-                    <label>Portion / Grams</label>
-                    <input className="inp" type="number" placeholder="100g" value={fGrams} onChange={e => setFGrams(e.target.value)} />
+                  <div className="form-field" style={{ minWidth: 70, flex: 0.8 }}>
+                    <label>Qty / Amount</label>
+                    <input 
+                      className="inp" 
+                      type="number" 
+                      step="any" 
+                      min="0.1" 
+                      placeholder="1" 
+                      value={fPortionAmount} 
+                      onChange={e => setFPortionAmount(e.target.value)} 
+                    />
+                  </div>
+                  <div className="form-field" style={{ minWidth: 100, flex: 1 }}>
+                    <label>Unit</label>
+                    <select 
+                      className="inp" 
+                      value={fPortionUnit} 
+                      onChange={e => setFPortionUnit(e.target.value)}
+                    >
+                      <option value="pieces">Pieces / Count</option>
+                      <option value="grams">Grams (g)</option>
+                      <option value="bowls">Bowls</option>
+                      <option value="plates">Plates</option>
+                      <option value="slices">Slices</option>
+                      <option value="cups">Cups</option>
+                    </select>
                   </div>
                   <div className="form-field f-num">
                     <label>Calories (kcal)</label>
@@ -838,26 +878,43 @@ export default function FoodTab({ currentUser }) {
                     <label>Food name</label>
                     <input 
                       className="inp" 
-                      placeholder="e.g. Rice, Paneer Curry, Chicken, Dosa..." 
+                      placeholder="e.g. Dosa, Idli, Rice, Biryani, Apple, Roti..." 
                       value={foodAiQuery}
                       onChange={e => setFoodAiQuery(e.target.value)} 
                       onKeyDown={e => e.key === "Enter" && handleEstimateFoodAi()} 
                     />
                   </div>
-                  <div className="form-field f-num">
-                    <label>Grams</label>
+                  <div className="form-field" style={{ minWidth: 70, flex: 0.8 }}>
+                    <label>Quantity</label>
                     <input 
                       className="inp" 
                       type="number" 
-                      placeholder="100" 
-                      value={foodAiGrams} 
-                      onChange={e => setFoodAiGrams(e.target.value)} 
+                      step="any" 
+                      min="0.1" 
+                      placeholder="2" 
+                      value={foodAiAmount} 
+                      onChange={e => setFoodAiAmount(e.target.value)} 
                       onKeyDown={e => e.key === "Enter" && handleEstimateFoodAi()} 
                     />
                   </div>
+                  <div className="form-field" style={{ minWidth: 100, flex: 1 }}>
+                    <label>Unit</label>
+                    <select 
+                      className="inp" 
+                      value={foodAiUnit} 
+                      onChange={e => setFoodAiUnit(e.target.value)}
+                    >
+                      <option value="pieces">Pieces (pcs)</option>
+                      <option value="grams">Grams (g)</option>
+                      <option value="bowls">Bowls</option>
+                      <option value="plates">Plates</option>
+                      <option value="slices">Slices</option>
+                      <option value="cups">Cups</option>
+                    </select>
+                  </div>
                   <button 
                     className="add-btn" 
-                    style={{ minWidth: 160, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                    style={{ minWidth: 150, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
                     onClick={handleEstimateFoodAi}
                     disabled={foodAiLoading}
                   >
@@ -932,7 +989,9 @@ export default function FoodTab({ currentUser }) {
               <div style={{ fontSize: 10, color: "var(--text3)", marginTop: 2 }}>{f.macros}</div>
             ) : null}
           </div>
-          {f.grams && <div className="food-meta">{typeof f.grams === "number" ? `${f.grams}g` : f.grams}</div>}
+          <div className="food-meta">
+            {f.portion || (f.grams ? (typeof f.grams === "number" ? `${f.grams}g` : f.grams) : "1 item")}
+          </div>
           <div className="food-cal">{f.cal} kcal</div>
           {isToday && <button className="del-btn" onClick={() => delFood(f.id)}>×</button>}
         </div>

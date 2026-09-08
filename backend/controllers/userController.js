@@ -344,13 +344,20 @@ exports.getHabitDescription = async (req, res) => {
 
 exports.estimateFoodCalories = async (req, res) => {
   try {
-    const { query, grams } = req.body;
+    const { query, grams, portion, amount, unit } = req.body;
     if (!query || !query.trim()) {
       return res.status(400).json({ message: "Food description is required" });
     }
 
     const foodName = query.trim();
-    const portionContext = grams && String(grams).trim() ? String(grams).trim() : "standard serving";
+    let portionContext = "standard serving";
+    if (portion && String(portion).trim()) {
+      portionContext = String(portion).trim();
+    } else if (amount && unit) {
+      portionContext = `${amount} ${unit}`;
+    } else if (grams && String(grams).trim()) {
+      portionContext = String(grams).trim();
+    }
 
     if (!process.env.GROQ_API_KEY && !process.env.GEMINI_API_KEY) {
       return res.json({
@@ -361,26 +368,26 @@ exports.estimateFoodCalories = async (req, res) => {
         carbs: 30,
         fat: 8,
         fiber: 3,
-        explanation: "Approximate estimate based on standard portion.",
+        explanation: `Approximate estimate based on ${portionContext}.`,
         fallback: true
       });
     }
 
     const prompt = `You are an expert clinical dietitian and nutritional database AI.
 User ate: "${foodName}"
-Portion / Grams specified: "${portionContext}"
+Portion / Quantity specified: "${portionContext}"
 
-Analyze the food item and exact weight/portion size. Estimate the approximate total calories and macronutrient breakdown (protein, carbs, fats, and dietary fiber in grams).
+Analyze the food item and exact portion size or quantity count (e.g. "2 pieces of dosa", "3 eggs", "150g rice", "1 bowl of dal"). Estimate the approximate total calories and macronutrient breakdown (protein, carbs, fats, and dietary fiber in grams).
 Respond ONLY with a JSON object in this exact schema, without any conversational preamble or markdown:
 {
-  "name": "Concise food title e.g. Paneer Butter Masala",
+  "name": "Concise food title e.g. Dosa",
   "portion": "${portionContext}",
-  "calories": 320,
-  "protein": 14,
-  "carbs": 18,
-  "fat": 22,
-  "fiber": 4,
-  "explanation": "Short 1-sentence nutritional breakdown referencing the portion/grams and key macros."
+  "calories": 240,
+  "protein": 6,
+  "carbs": 38,
+  "fat": 7,
+  "fiber": 2,
+  "explanation": "Short 1-sentence nutritional breakdown referencing the exact quantity/portion."
 }`;
 
     const text = await callAI(prompt, true);
