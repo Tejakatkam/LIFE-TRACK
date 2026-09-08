@@ -9,12 +9,15 @@ function lsSet(k, v) {
 }
 
 const WORKOUT_TYPES = [
-  { id: "gym", label: "Gym / Strength", icon: "🏋️" },
-  { id: "cardio", label: "Running / Cardio", icon: "🏃" },
-  { id: "cycling", label: "Cycling", icon: "🚴" },
+  { id: "self", label: "Self / Custom Routine", icon: "✨" },
+  { id: "gym", label: "Gym / Strength Training", icon: "🏋️" },
+  { id: "running", label: "Running / Jogging", icon: "🏃" },
+  { id: "walking", label: "Brisk Walking", icon: "🚶" },
+  { id: "cycling", label: "Cycling / Biking", icon: "🚴" },
   { id: "swimming", label: "Swimming", icon: "🏊" },
-  { id: "yoga", label: "Yoga / Stretch", icon: "🧘" },
-  { id: "sports", label: "Sports / Other", icon: "⚡" },
+  { id: "yoga", label: "Yoga / Stretching", icon: "🧘" },
+  { id: "hiit", label: "HIIT / Circuit Training", icon: "⚡" },
+  { id: "sports", label: "Sports (Badminton, Football, etc.)", icon: "🏸" },
 ];
 
 export default function FoodTab({ currentUser }) {
@@ -28,7 +31,9 @@ export default function FoodTab({ currentUser }) {
   const [fName, setFName] = useState("");
   const [fGrams, setFGrams] = useState("");
   const [fCal, setFCal] = useState("");
+  
   const [foodAiQuery, setFoodAiQuery] = useState("");
+  const [foodAiGrams, setFoodAiGrams] = useState("");
   const [foodAiLoading, setFoodAiLoading] = useState(false);
   const [foodAiResult, setFoodAiResult] = useState(null);
   const [foodAiErr, setFoodAiErr] = useState("");
@@ -36,10 +41,12 @@ export default function FoodTab({ currentUser }) {
   // Workout logging states
   const [showAddWorkout, setShowAddWorkout] = useState(false);
   const [workoutMode, setWorkoutMode] = useState("manual"); // 'manual' | 'ai'
-  const [wType, setWType] = useState("Gym / Strength");
+  const [wType, setWType] = useState("Gym / Strength Training");
   const [wName, setWName] = useState("");
   const [wDuration, setWDuration] = useState("45");
   const [wCal, setWCal] = useState("");
+  
+  const [wAiType, setWAiType] = useState("Self / Custom Routine");
   const [wAiQuery, setWAiQuery] = useState("");
   const [wAiLoading, setWAiLoading] = useState(false);
   const [wAiResult, setWAiResult] = useState(null);
@@ -88,7 +95,7 @@ export default function FoodTab({ currentUser }) {
 
   const handleEstimateFoodAi = async () => {
     if (!foodAiQuery.trim()) {
-      setFoodAiErr("Please describe what you ate (e.g. 2 boiled eggs & 1 slice toast).");
+      setFoodAiErr("Please describe what food you ate.");
       return;
     }
     setFoodAiLoading(true);
@@ -104,7 +111,10 @@ export default function FoodTab({ currentUser }) {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
-        body: JSON.stringify({ query: foodAiQuery.trim() })
+        body: JSON.stringify({ 
+          query: foodAiQuery.trim(),
+          grams: foodAiGrams.trim()
+        })
       });
 
       if (!res.ok) throw new Error("AI estimation service unavailable");
@@ -124,7 +134,7 @@ export default function FoodTab({ currentUser }) {
       {
         id: Date.now(),
         name: foodAiResult.name || foodAiQuery.trim(),
-        grams: foodAiResult.portion || null,
+        grams: foodAiResult.portion || foodAiGrams.trim() || null,
         cal: Math.round(foodAiResult.calories || 200),
         source: "ai",
         macros: [foodAiResult.protein ? `P: ${foodAiResult.protein}` : null, foodAiResult.carbs ? `C: ${foodAiResult.carbs}` : null, foodAiResult.fat ? `F: ${foodAiResult.fat}` : null].filter(Boolean).join(" | ")
@@ -133,6 +143,7 @@ export default function FoodTab({ currentUser }) {
     setFoodLog(updated);
     lsSet(`food_${userId}_${viewDay}`, updated);
     setFoodAiQuery("");
+    setFoodAiGrams("");
     setFoodAiResult(null);
   };
 
@@ -169,8 +180,9 @@ export default function FoodTab({ currentUser }) {
   };
 
   const handleEstimateWorkoutAi = async () => {
-    if (!wAiQuery.trim()) {
-      setWAiErr("Please describe your workout (e.g. 45 mins chest & triceps strength training).");
+    const isSelfMode = wAiType === "Self / Custom Routine";
+    if (isSelfMode && !wAiQuery.trim()) {
+      setWAiErr("Please describe your workout routine or choose an activity type.");
       return;
     }
     setWAiLoading(true);
@@ -187,9 +199,9 @@ export default function FoodTab({ currentUser }) {
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
-          workout: wAiQuery.trim(),
+          workout: wAiQuery.trim() || wAiType,
           duration: +wDuration || 45,
-          type: wType
+          type: wAiType
         })
       });
 
@@ -209,8 +221,8 @@ export default function FoodTab({ currentUser }) {
       ...workoutLog,
       {
         id: Date.now(),
-        type: wType,
-        name: wAiResult.workoutName || wAiQuery.trim(),
+        type: wAiType,
+        name: wAiResult.workoutName || wAiQuery.trim() || wAiType,
         duration: Number(wAiResult.duration || wDuration || 30),
         cal: Math.round(Number(wAiResult.caloriesBurned || 200)),
         source: "ai",
@@ -421,7 +433,7 @@ export default function FoodTab({ currentUser }) {
                   <div className="form-field">
                     <label>Activity Type</label>
                     <select className="inp" value={wType} onChange={e => setWType(e.target.value)}>
-                      {WORKOUT_TYPES.map(t => (
+                      {WORKOUT_TYPES.filter(t => t.id !== "self").map(t => (
                         <option key={t.id} value={t.label}>{t.icon} {t.label}</option>
                       ))}
                     </select>
@@ -444,33 +456,49 @@ export default function FoodTab({ currentUser }) {
                 </button>
               </div>
             ) : (
-              <div>
-                <div className="form-field">
-                  <label>Describe Workout & Routine</label>
-                  <textarea 
-                    className="inp" 
-                    placeholder='e.g. "Heavy leg day squatting and lunges for 45 mins" or "30 mins HIIT running interval"'
-                    value={wAiQuery} 
-                    onChange={e => setWAiQuery(e.target.value)}
-                    style={{ minHeight: 60, resize: "vertical" }}
-                  />
-                </div>
-                <div style={{ display: "flex", gap: 10, marginTop: 8, alignItems: "flex-end" }}>
-                  <div className="form-field" style={{ flex: 1 }}>
-                    <label>Duration (mins)</label>
-                    <input className="inp" type="number" value={wDuration} onChange={e => setWDuration(e.target.value)} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 10 }}>
+                  <div className="form-field">
+                    <label>Activity Type</label>
+                    <select className="inp" value={wAiType} onChange={e => setWAiType(e.target.value)}>
+                      {WORKOUT_TYPES.map(t => (
+                        <option key={t.id} value={t.label}>{t.icon} {t.label}</option>
+                      ))}
+                    </select>
                   </div>
-                  <button 
-                    className="add-btn" 
-                    style={{ flex: 2, height: 42, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }} 
-                    onClick={handleEstimateWorkoutAi}
-                    disabled={wAiLoading}
-                  >
-                    {wAiLoading ? "Analyzing Metabolic Burn..." : "✦ Predict Calorie Burn"}
-                  </button>
+                  <div className="form-field">
+                    <label>Duration (mins)</label>
+                    <input className="inp" type="number" placeholder="60" value={wDuration} onChange={e => setWDuration(e.target.value)} />
+                  </div>
                 </div>
 
-                {wAiErr && <div className="err" style={{ marginTop: 8 }}>{wAiErr}</div>}
+                <div className="form-field">
+                  <label>
+                    {wAiType === "Self / Custom Routine" 
+                      ? "Describe Workout & Routine" 
+                      : `Routine / Specific Details for ${wAiType} (Optional)`}
+                  </label>
+                  <textarea 
+                    className="inp" 
+                    placeholder={wAiType === "Self / Custom Routine"
+                      ? 'e.g. "Heavy leg day squatting and lunges for 45 mins" or "30 mins HIIT kettlebell workout"'
+                      : `e.g. "Steady pace on incline" or leave blank to estimate based on ${wAiType}`}
+                    value={wAiQuery} 
+                    onChange={e => setWAiQuery(e.target.value)}
+                    style={{ minHeight: 50, resize: "vertical" }}
+                  />
+                </div>
+
+                <button 
+                  className="add-btn" 
+                  style={{ width: "100%", height: 42, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }} 
+                  onClick={handleEstimateWorkoutAi}
+                  disabled={wAiLoading}
+                >
+                  {wAiLoading ? "Analyzing Metabolic Burn..." : "✦ Predict Calorie Burn"}
+                </button>
+
+                {wAiErr && <div className="err">{wAiErr}</div>}
 
                 {/* AI Workout Result Preview */}
                 {wAiResult && (
@@ -589,30 +617,40 @@ export default function FoodTab({ currentUser }) {
                 <button className="add-btn" onClick={addFoodManual}>+ Add</button>
               </div>
             ) : (
-              <div>
-                <div className="form-field">
-                  <label>What did you eat & approx amount?</label>
-                  <div style={{ display: "flex", gap: 10 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10 }}>
+                  <div className="form-field">
+                    <label>What did you eat?</label>
                     <input 
                       className="inp" 
-                      placeholder='e.g. "2 butter naans and 1 bowl paneer butter masala" or "1 chicken sandwich"'
+                      placeholder='e.g. "Chicken Biryani" or "2 dosas and sambar"'
                       value={foodAiQuery}
                       onChange={e => setFoodAiQuery(e.target.value)}
                       onKeyDown={e => e.key === "Enter" && handleEstimateFoodAi()}
-                      style={{ flex: 1 }}
                     />
-                    <button 
-                      className="add-btn" 
-                      style={{ minWidth: 140, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-                      onClick={handleEstimateFoodAi}
-                      disabled={foodAiLoading}
-                    >
-                      {foodAiLoading ? "Estimating..." : "✦ Estimate Calories"}
-                    </button>
+                  </div>
+                  <div className="form-field">
+                    <label>Amount / Grams (Optional)</label>
+                    <input 
+                      className="inp" 
+                      placeholder='e.g. "250g" or "1 bowl"'
+                      value={foodAiGrams}
+                      onChange={e => setFoodAiGrams(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && handleEstimateFoodAi()}
+                    />
                   </div>
                 </div>
 
-                {foodAiErr && <div className="err" style={{ marginTop: 8 }}>{foodAiErr}</div>}
+                <button 
+                  className="add-btn" 
+                  style={{ width: "100%", height: 42, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                  onClick={handleEstimateFoodAi}
+                  disabled={foodAiLoading}
+                >
+                  {foodAiLoading ? "Analyzing Nutritional Content..." : "✦ Estimate Calories with AI"}
+                </button>
+
+                {foodAiErr && <div className="err">{foodAiErr}</div>}
 
                 {/* AI Food Result Preview */}
                 {foodAiResult && (

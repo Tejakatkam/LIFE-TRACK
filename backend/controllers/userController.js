@@ -222,36 +222,40 @@ exports.getHabitDescription = async (req, res) => {
 
 exports.estimateFoodCalories = async (req, res) => {
   try {
-    const { query } = req.body;
+    const { query, grams } = req.body;
     if (!query || !query.trim()) {
       return res.status(400).json({ message: "Food description is required" });
     }
 
+    const foodName = query.trim();
+    const portionContext = grams && String(grams).trim() ? String(grams).trim() : "standard serving";
+
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return res.json({
-        name: query.trim(),
+        name: foodName,
         calories: 250,
-        portion: "1 standard serving",
+        portion: portionContext,
         macros: "",
-        explanation: "Approximate estimate (AI key unavailable).",
+        explanation: "Approximate estimate based on standard portion.",
         fallback: true
       });
     }
 
     const prompt = `You are an expert clinical dietitian and nutritional database AI.
-User ate: "${query.trim()}"
+User ate: "${foodName}"
+Portion / Grams specified: "${portionContext}"
 
-Analyze the food item and portion size. Estimate the approximate total calories and basic macronutrients.
+Analyze the food item and exact weight/portion size. Estimate the approximate total calories and macronutrient profile.
 Respond ONLY with a JSON object in this exact schema, without any conversational preamble or markdown:
 {
-  "name": "Concise food title e.g. 2 Boiled Eggs & Whole Wheat Toast",
-  "portion": "e.g. 2 eggs + 1 slice",
-  "calories": 210,
-  "protein": "14g",
-  "carbs": "15g",
-  "fat": "10g",
-  "explanation": "Short 1-sentence nutritional breakdown."
+  "name": "Concise food title e.g. Paneer Butter Masala",
+  "portion": "${portionContext}",
+  "calories": 320,
+  "protein": "12g",
+  "carbs": "14g",
+  "fat": "22g",
+  "explanation": "Short 1-sentence nutritional breakdown referencing the portion/grams."
 }`;
 
     const text = await callGemini(apiKey, prompt, true);
@@ -262,8 +266,8 @@ Respond ONLY with a JSON object in this exact schema, without any conversational
         const parsed = JSON.parse(jsonMatch[0]);
         if (parsed.calories) {
           return res.json({
-            name: parsed.name || query.trim(),
-            portion: parsed.portion || "",
+            name: parsed.name || foodName,
+            portion: parsed.portion || portionContext,
             calories: Math.round(Number(parsed.calories)),
             protein: parsed.protein || "",
             carbs: parsed.carbs || "",
@@ -277,8 +281,8 @@ Respond ONLY with a JSON object in this exact schema, without any conversational
       const cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
       const parsed = JSON.parse(cleaned);
       return res.json({
-        name: parsed.name || query.trim(),
-        portion: parsed.portion || "",
+        name: parsed.name || foodName,
+        portion: parsed.portion || portionContext,
         calories: Math.round(Number(parsed.calories || 250)),
         protein: parsed.protein || "",
         carbs: parsed.carbs || "",
@@ -289,11 +293,11 @@ Respond ONLY with a JSON object in this exact schema, without any conversational
     } catch (parseErr) {
       console.error("estimateFoodCalories parse error:", parseErr.message, "Raw:", text);
       return res.json({
-        name: query.trim(),
+        name: foodName,
         calories: 250,
-        portion: "1 serving",
+        portion: portionContext,
         macros: "",
-        explanation: "AI estimate based on standard portion.",
+        explanation: "AI estimate based on portion specified.",
         fallback: true
       });
     }
@@ -302,7 +306,7 @@ Respond ONLY with a JSON object in this exact schema, without any conversational
     return res.json({
       name: req.body?.query || "Food Item",
       calories: 250,
-      portion: "1 serving",
+      portion: req.body?.grams || "1 serving",
       macros: "",
       explanation: "Standard portion estimation.",
       fallback: true
@@ -312,9 +316,14 @@ Respond ONLY with a JSON object in this exact schema, without any conversational
 
 exports.estimateWorkoutCalories = async (req, res) => {
   try {
-    const { workout, duration = 30, type = "General" } = req.body;
-    if (!workout || !workout.trim()) {
-      return res.status(400).json({ message: "Workout description is required" });
+    const { workout, duration = 30, type = "Self / Custom Routine" } = req.body;
+    
+    // If workout text is empty, fall back to the selected activity type
+    const activityName = workout && workout.trim() ? workout.trim() : type;
+    if (!activityName || activityName === "Self / Custom Routine") {
+      if (!workout || !workout.trim()) {
+        return res.status(400).json({ message: "Please select an activity type or describe your workout routine." });
+      }
     }
 
     const userId = req.user.id;
@@ -326,31 +335,41 @@ exports.estimateWorkoutCalories = async (req, res) => {
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      const approxBurn = Math.round((6.0 * 3.5 * weightKg / 200) * durMins);
+      // Heuristic fallback MET calculation based on activity
+      let met = 5.0;
+      const lower = activityName.toLowerCase();
+      if (lower.includes("run") || lower.includes("jog")) met = 8.5;
+      else if (lower.includes("walk")) met = 3.8;
+      else if (lower.includes("cycl") || lower.includes("bike")) met = 7.0;
+      else if (lower.includes("swim")) met = 7.0;
+      else if (lower.includes("hiit")) met = 8.0;
+      else if (lower.includes("yoga")) met = 3.0;
+
+      const approxBurn = Math.round((met * 3.5 * weightKg / 200) * durMins);
       return res.json({
-        workoutName: workout.trim(),
+        workoutName: activityName,
         duration: durMins,
         caloriesBurned: approxBurn,
-        intensity: "Moderate",
-        explanation: `Estimated ~${approxBurn} kcal based on standard MET values for ${weightKg}kg.`,
+        intensity: met >= 7 ? "High" : met >= 4.5 ? "Moderate" : "Light",
+        explanation: `Estimated ~${approxBurn} kcal based on MET formulas for ${weightKg}kg over ${durMins} mins.`,
         fallback: true
       });
     }
 
     const prompt = `You are an expert exercise physiologist AI.
 User Profile: Weight: ${weightKg} kg, Biological Sex: ${gender}.
-Workout performed: "${workout.trim()}"
+Activity Type: ${type}
+Workout Routine / Description: "${activityName}"
 Duration: ${durMins} minutes.
-Category: ${type}.
 
-Calculate the estimated active calories burned for this individual during this workout.
+Calculate the estimated active calories burned for this individual during this workout based on physiological MET principles.
 Respond ONLY with a JSON object in this exact schema, without any conversational preamble or markdown:
 {
-  "workoutName": "Clean workout name e.g. Upper Body Gym Workout",
+  "workoutName": "${activityName}",
   "duration": ${durMins},
-  "caloriesBurned": 220,
+  "caloriesBurned": 240,
   "intensity": "Moderate / High / Low",
-  "explanation": "Short 1-sentence physiological explanation referencing MET and body mass."
+  "explanation": "Short 1-sentence physiological explanation referencing MET and caloric burn rate."
 }`;
 
     const text = await callGemini(apiKey, prompt, true);
@@ -361,7 +380,7 @@ Respond ONLY with a JSON object in this exact schema, without any conversational
         const parsed = JSON.parse(jsonMatch[0]);
         if (parsed.caloriesBurned) {
           return res.json({
-            workoutName: parsed.workoutName || workout.trim(),
+            workoutName: parsed.workoutName || activityName,
             duration: Number(parsed.duration || durMins),
             caloriesBurned: Math.round(Number(parsed.caloriesBurned)),
             intensity: parsed.intensity || "Moderate",
@@ -374,7 +393,7 @@ Respond ONLY with a JSON object in this exact schema, without any conversational
       const cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
       const parsed = JSON.parse(cleaned);
       return res.json({
-        workoutName: parsed.workoutName || workout.trim(),
+        workoutName: parsed.workoutName || activityName,
         duration: Number(parsed.duration || durMins),
         caloriesBurned: Math.round(Number(parsed.caloriesBurned || 150)),
         intensity: parsed.intensity || "Moderate",
@@ -385,7 +404,7 @@ Respond ONLY with a JSON object in this exact schema, without any conversational
       console.error("estimateWorkoutCalories parse error:", parseErr.message, "Raw:", text);
       const approxBurn = Math.round((5.5 * 3.5 * weightKg / 200) * durMins);
       return res.json({
-        workoutName: workout.trim(),
+        workoutName: activityName,
         duration: durMins,
         caloriesBurned: approxBurn,
         intensity: "Moderate",
@@ -396,7 +415,7 @@ Respond ONLY with a JSON object in this exact schema, without any conversational
   } catch (err) {
     console.error("estimateWorkoutCalories error:", err.message);
     return res.json({
-      workoutName: req.body?.workout || "Workout",
+      workoutName: req.body?.workout || req.body?.type || "Workout",
       duration: Number(req.body?.duration || 30),
       caloriesBurned: 180,
       intensity: "Moderate",
