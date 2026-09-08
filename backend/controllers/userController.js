@@ -220,4 +220,190 @@ exports.getHabitDescription = async (req, res) => {
   }
 };
 
+exports.estimateFoodCalories = async (req, res) => {
+  try {
+    const { query } = req.body;
+    if (!query || !query.trim()) {
+      return res.status(400).json({ message: "Food description is required" });
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.json({
+        name: query.trim(),
+        calories: 250,
+        portion: "1 standard serving",
+        macros: "",
+        explanation: "Approximate estimate (AI key unavailable).",
+        fallback: true
+      });
+    }
+
+    const prompt = `You are an expert clinical dietitian and nutritional database AI.
+User ate: "${query.trim()}"
+
+Analyze the food item and portion size. Estimate the approximate total calories and basic macronutrients.
+Respond ONLY with a JSON object in this exact schema, without any conversational preamble or markdown:
+{
+  "name": "Concise food title e.g. 2 Boiled Eggs & Whole Wheat Toast",
+  "portion": "e.g. 2 eggs + 1 slice",
+  "calories": 210,
+  "protein": "14g",
+  "carbs": "15g",
+  "fat": "10g",
+  "explanation": "Short 1-sentence nutritional breakdown."
+}`;
+
+    const text = await callGemini(apiKey, prompt, true);
+
+    try {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.calories) {
+          return res.json({
+            name: parsed.name || query.trim(),
+            portion: parsed.portion || "",
+            calories: Math.round(Number(parsed.calories)),
+            protein: parsed.protein || "",
+            carbs: parsed.carbs || "",
+            fat: parsed.fat || "",
+            explanation: parsed.explanation || "AI-estimated nutritional value.",
+            fallback: false
+          });
+        }
+      }
+
+      const cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
+      const parsed = JSON.parse(cleaned);
+      return res.json({
+        name: parsed.name || query.trim(),
+        portion: parsed.portion || "",
+        calories: Math.round(Number(parsed.calories || 250)),
+        protein: parsed.protein || "",
+        carbs: parsed.carbs || "",
+        fat: parsed.fat || "",
+        explanation: parsed.explanation || "AI-estimated nutritional value.",
+        fallback: false
+      });
+    } catch (parseErr) {
+      console.error("estimateFoodCalories parse error:", parseErr.message, "Raw:", text);
+      return res.json({
+        name: query.trim(),
+        calories: 250,
+        portion: "1 serving",
+        macros: "",
+        explanation: "AI estimate based on standard portion.",
+        fallback: true
+      });
+    }
+  } catch (err) {
+    console.error("estimateFoodCalories error:", err.message);
+    return res.json({
+      name: req.body?.query || "Food Item",
+      calories: 250,
+      portion: "1 serving",
+      macros: "",
+      explanation: "Standard portion estimation.",
+      fallback: true
+    });
+  }
+};
+
+exports.estimateWorkoutCalories = async (req, res) => {
+  try {
+    const { workout, duration = 30, type = "General" } = req.body;
+    if (!workout || !workout.trim()) {
+      return res.status(400).json({ message: "Workout description is required" });
+    }
+
+    const userId = req.user.id;
+    const [rows] = await db.query("SELECT weight, gender FROM users WHERE id = ?", [userId]).catch(() => [[]]);
+    const user = rows[0] || {};
+    const weightKg = Number(user.weight) || 70;
+    const gender = user.gender || "male";
+    const durMins = Math.max(1, Number(duration) || 30);
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      const approxBurn = Math.round((6.0 * 3.5 * weightKg / 200) * durMins);
+      return res.json({
+        workoutName: workout.trim(),
+        duration: durMins,
+        caloriesBurned: approxBurn,
+        intensity: "Moderate",
+        explanation: `Estimated ~${approxBurn} kcal based on standard MET values for ${weightKg}kg.`,
+        fallback: true
+      });
+    }
+
+    const prompt = `You are an expert exercise physiologist AI.
+User Profile: Weight: ${weightKg} kg, Biological Sex: ${gender}.
+Workout performed: "${workout.trim()}"
+Duration: ${durMins} minutes.
+Category: ${type}.
+
+Calculate the estimated active calories burned for this individual during this workout.
+Respond ONLY with a JSON object in this exact schema, without any conversational preamble or markdown:
+{
+  "workoutName": "Clean workout name e.g. Upper Body Gym Workout",
+  "duration": ${durMins},
+  "caloriesBurned": 220,
+  "intensity": "Moderate / High / Low",
+  "explanation": "Short 1-sentence physiological explanation referencing MET and body mass."
+}`;
+
+    const text = await callGemini(apiKey, prompt, true);
+
+    try {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.caloriesBurned) {
+          return res.json({
+            workoutName: parsed.workoutName || workout.trim(),
+            duration: Number(parsed.duration || durMins),
+            caloriesBurned: Math.round(Number(parsed.caloriesBurned)),
+            intensity: parsed.intensity || "Moderate",
+            explanation: parsed.explanation || `Estimated burn based on ${durMins} mins activity.`,
+            fallback: false
+          });
+        }
+      }
+
+      const cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
+      const parsed = JSON.parse(cleaned);
+      return res.json({
+        workoutName: parsed.workoutName || workout.trim(),
+        duration: Number(parsed.duration || durMins),
+        caloriesBurned: Math.round(Number(parsed.caloriesBurned || 150)),
+        intensity: parsed.intensity || "Moderate",
+        explanation: parsed.explanation || "AI-estimated caloric expenditure.",
+        fallback: false
+      });
+    } catch (parseErr) {
+      console.error("estimateWorkoutCalories parse error:", parseErr.message, "Raw:", text);
+      const approxBurn = Math.round((5.5 * 3.5 * weightKg / 200) * durMins);
+      return res.json({
+        workoutName: workout.trim(),
+        duration: durMins,
+        caloriesBurned: approxBurn,
+        intensity: "Moderate",
+        explanation: `Estimated ~${approxBurn} kcal based on MET formulas.`,
+        fallback: true
+      });
+    }
+  } catch (err) {
+    console.error("estimateWorkoutCalories error:", err.message);
+    return res.json({
+      workoutName: req.body?.workout || "Workout",
+      duration: Number(req.body?.duration || 30),
+      caloriesBurned: 180,
+      intensity: "Moderate",
+      explanation: "Standard activity burn estimate.",
+      fallback: true
+    });
+  }
+};
+
 

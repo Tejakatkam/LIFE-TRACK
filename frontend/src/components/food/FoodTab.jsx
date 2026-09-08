@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { todayKey, dateOffset, fmtDate, stepsBurned } from "../../utils/helpers";
 
-// Use localStorage for data persistence (works in real deployed apps)
 function lsGet(k) {
   try { return JSON.parse(localStorage.getItem(k)); } catch { return null; }
 }
@@ -9,38 +8,132 @@ function lsSet(k, v) {
   try { localStorage.setItem(k, JSON.stringify(v)); } catch {}
 }
 
+const WORKOUT_TYPES = [
+  { id: "gym", label: "Gym / Strength", icon: "🏋️" },
+  { id: "cardio", label: "Running / Cardio", icon: "🏃" },
+  { id: "cycling", label: "Cycling", icon: "🚴" },
+  { id: "swimming", label: "Swimming", icon: "🏊" },
+  { id: "yoga", label: "Yoga / Stretch", icon: "🧘" },
+  { id: "sports", label: "Sports / Other", icon: "⚡" },
+];
+
 export default function FoodTab({ currentUser }) {
   const [dayOffset, setDayOffset] = useState(0);
   const [foodLog, setFoodLog] = useState([]);
+  const [workoutLog, setWorkoutLog] = useState([]);
   const [foodSteps, setFoodSteps] = useState("");
+
+  // Food logging states
+  const [foodMode, setFoodMode] = useState("manual"); // 'manual' | 'ai'
   const [fName, setFName] = useState("");
   const [fGrams, setFGrams] = useState("");
   const [fCal, setFCal] = useState("");
+  const [foodAiQuery, setFoodAiQuery] = useState("");
+  const [foodAiLoading, setFoodAiLoading] = useState(false);
+  const [foodAiResult, setFoodAiResult] = useState(null);
+  const [foodAiErr, setFoodAiErr] = useState("");
+
+  // Workout logging states
+  const [showAddWorkout, setShowAddWorkout] = useState(false);
+  const [workoutMode, setWorkoutMode] = useState("manual"); // 'manual' | 'ai'
+  const [wType, setWType] = useState("Gym / Strength");
+  const [wName, setWName] = useState("");
+  const [wDuration, setWDuration] = useState("45");
+  const [wCal, setWCal] = useState("");
+  const [wAiQuery, setWAiQuery] = useState("");
+  const [wAiLoading, setWAiLoading] = useState(false);
+  const [wAiResult, setWAiResult] = useState(null);
+  const [wAiErr, setWAiErr] = useState("");
 
   const userId = currentUser?.id || currentUser?.username || "user";
   const viewDay = dayOffset === 0 ? todayKey() : dateOffset(dayOffset);
-  
+  const isToday = viewDay === todayKey();
+
   useEffect(() => {
-    const log = lsGet(`food_${userId}_${viewDay}`);
-    setFoodLog(log || []);
+    const fLog = lsGet(`food_${userId}_${viewDay}`);
+    setFoodLog(fLog || []);
+    const wLog = lsGet(`workout_${userId}_${viewDay}`);
+    setWorkoutLog(wLog || []);
     const steps = lsGet(`steps_${userId}_${viewDay}`);
     setFoodSteps(steps !== null ? String(steps) : "");
   }, [userId, viewDay]);
-  const isToday = viewDay === todayKey();
 
-  const totalEaten = foodLog.reduce((s, f) => s + f.cal, 0);
-  const burned = stepsBurned(+foodSteps || 0);
-  const netCal = totalEaten - burned;
+  // Calorie Calculations
+  const totalEaten = foodLog.reduce((s, f) => s + (Number(f.cal) || 0), 0);
+  const stepCalBurned = stepsBurned(+foodSteps || 0);
+  const workoutCalBurned = workoutLog.reduce((s, w) => s + (Number(w.cal) || 0), 0);
+  const totalBurned = stepCalBurned + workoutCalBurned;
+  const netCal = totalEaten - totalBurned;
   const isDeficit = netCal < 0;
   const isZero = netCal === 0;
   const netClass = isZero ? "zero" : isDeficit ? "deficit" : "surplus";
 
-  const addFood = () => {
+  // Food handlers
+  const addFoodManual = () => {
     if (!fName || !fCal) return;
-    const updated = [...foodLog, { id: Date.now(), name: fName.trim(), grams: +fGrams || null, cal: +fCal }];
+    const updated = [
+      ...foodLog,
+      {
+        id: Date.now(),
+        name: fName.trim(),
+        grams: +fGrams || null,
+        cal: Math.round(+fCal),
+        source: "manual"
+      }
+    ];
     setFoodLog(updated);
     lsSet(`food_${userId}_${viewDay}`, updated);
     setFName(""); setFGrams(""); setFCal("");
+  };
+
+  const handleEstimateFoodAi = async () => {
+    if (!foodAiQuery.trim()) {
+      setFoodAiErr("Please describe what you ate (e.g. 2 boiled eggs & 1 slice toast).");
+      return;
+    }
+    setFoodAiLoading(true);
+    setFoodAiErr("");
+    setFoodAiResult(null);
+
+    try {
+      const BASE_URL = import.meta.env.VITE_API_URL;
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${BASE_URL}/api/user/estimate-food-calories`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ query: foodAiQuery.trim() })
+      });
+
+      if (!res.ok) throw new Error("AI estimation service unavailable");
+      const data = await res.json();
+      setFoodAiResult(data);
+    } catch (err) {
+      setFoodAiErr(err.message || "Failed to estimate calories with AI");
+    } finally {
+      setFoodAiLoading(false);
+    }
+  };
+
+  const addFoodFromAi = () => {
+    if (!foodAiResult) return;
+    const updated = [
+      ...foodLog,
+      {
+        id: Date.now(),
+        name: foodAiResult.name || foodAiQuery.trim(),
+        grams: foodAiResult.portion || null,
+        cal: Math.round(foodAiResult.calories || 200),
+        source: "ai",
+        macros: [foodAiResult.protein ? `P: ${foodAiResult.protein}` : null, foodAiResult.carbs ? `C: ${foodAiResult.carbs}` : null, foodAiResult.fat ? `F: ${foodAiResult.fat}` : null].filter(Boolean).join(" | ")
+      }
+    ];
+    setFoodLog(updated);
+    lsSet(`food_${userId}_${viewDay}`, updated);
+    setFoodAiQuery("");
+    setFoodAiResult(null);
   };
 
   const delFood = (id) => {
@@ -54,8 +147,166 @@ export default function FoodTab({ currentUser }) {
     lsSet(`steps_${userId}_${viewDay}`, val === "" ? 0 : +val);
   };
 
+  // Workout handlers
+  const addWorkoutManual = () => {
+    const nameToUse = wName.trim() || wType;
+    if (!wCal) return;
+    const updated = [
+      ...workoutLog,
+      {
+        id: Date.now(),
+        type: wType,
+        name: nameToUse,
+        duration: +wDuration || 30,
+        cal: Math.round(+wCal),
+        source: "manual"
+      }
+    ];
+    setWorkoutLog(updated);
+    lsSet(`workout_${userId}_${viewDay}`, updated);
+    setWName(""); setWCal(""); setWDuration("45");
+    setShowAddWorkout(false);
+  };
+
+  const handleEstimateWorkoutAi = async () => {
+    if (!wAiQuery.trim()) {
+      setWAiErr("Please describe your workout (e.g. 45 mins chest & triceps strength training).");
+      return;
+    }
+    setWAiLoading(true);
+    setWAiErr("");
+    setWAiResult(null);
+
+    try {
+      const BASE_URL = import.meta.env.VITE_API_URL;
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${BASE_URL}/api/user/estimate-workout-calories`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          workout: wAiQuery.trim(),
+          duration: +wDuration || 45,
+          type: wType
+        })
+      });
+
+      if (!res.ok) throw new Error("AI workout service unavailable");
+      const data = await res.json();
+      setWAiResult(data);
+    } catch (err) {
+      setWAiErr(err.message || "Failed to estimate workout burn");
+    } finally {
+      setWAiLoading(false);
+    }
+  };
+
+  const addWorkoutFromAi = () => {
+    if (!wAiResult) return;
+    const updated = [
+      ...workoutLog,
+      {
+        id: Date.now(),
+        type: wType,
+        name: wAiResult.workoutName || wAiQuery.trim(),
+        duration: Number(wAiResult.duration || wDuration || 30),
+        cal: Math.round(Number(wAiResult.caloriesBurned || 200)),
+        source: "ai",
+        intensity: wAiResult.intensity || "Moderate"
+      }
+    ];
+    setWorkoutLog(updated);
+    lsSet(`workout_${userId}_${viewDay}`, updated);
+    setWAiQuery("");
+    setWAiResult(null);
+    setShowAddWorkout(false);
+  };
+
+  const delWorkout = (id) => {
+    const updated = workoutLog.filter(w => w.id !== id);
+    setWorkoutLog(updated);
+    lsSet(`workout_${userId}_${viewDay}`, updated);
+  };
+
   return (
     <>
+      <style>{`
+        .tab-mode-selector {
+          display: flex;
+          background: var(--bg);
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          padding: 3px;
+          margin-bottom: 14px;
+          gap: 4px;
+        }
+        .tab-mode-btn {
+          flex: 1;
+          padding: 8px 12px;
+          border: none;
+          background: transparent;
+          color: var(--text2);
+          font-family: 'Jost', sans-serif;
+          font-size: 12px;
+          font-weight: 500;
+          border-radius: 7px;
+          cursor: pointer;
+          transition: all 0.2s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+        }
+        .tab-mode-btn.active {
+          background: var(--surface);
+          color: var(--accent);
+          box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+          font-weight: 600;
+        }
+        .ai-result-box {
+          background: var(--surface2);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 14px 16px;
+          margin-top: 12px;
+          animation: fadeIn 0.2s ease;
+        }
+        .workout-section {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          padding: 18px 20px;
+          margin-top: 14px;
+          margin-bottom: 24px;
+        }
+        .workout-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 10px 12px;
+          background: var(--bg);
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          margin-top: 8px;
+        }
+        .ai-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+          font-size: 10px;
+          padding: 2px 6px;
+          border-radius: 10px;
+          background: rgba(197, 160, 115, 0.15);
+          color: var(--accent);
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+      `}</style>
+
+      {/* Date Navigation */}
       <div className="date-nav">
         <button className="date-nav-btn" onClick={() => setDayOffset(d => d - 1)}>‹</button>
         <div className="date-str">{fmtDate(viewDay)}</div>
@@ -64,6 +315,7 @@ export default function FoodTab({ currentUser }) {
         )}
       </div>
 
+      {/* Calorie Summary Overview Card */}
       <div className="summary-card">
         <div className="cal-row">
           <div className="cal-chip">
@@ -71,15 +323,25 @@ export default function FoodTab({ currentUser }) {
             <div className="cal-chip-val">{totalEaten}<span>kcal</span></div>
           </div>
           <div className="cal-chip">
-            <div className="cal-chip-label">Burned</div>
-            <div className="cal-chip-val green">−{burned}<span>kcal</span></div>
+            <div className="cal-chip-label">Total Burned</div>
+            <div className="cal-chip-val green">−{totalBurned}<span>kcal</span></div>
           </div>
           <div className="cal-chip">
-            <div className="cal-chip-label">Net</div>
-            <div className={`cal-chip-val ${netClass}`}>{isDeficit ? "−" : "+"}{Math.abs(netCal)}<span>kcal</span></div>
+            <div className="cal-chip-label">Net Balance</div>
+            <div className={`cal-chip-val ${netClass}`}>
+              {isDeficit ? "−" : "+"}{Math.abs(netCal)}<span>kcal</span>
+            </div>
           </div>
         </div>
-        <div className={`net-banner ${netClass}`}>
+
+        {/* Burned Breakdown Note */}
+        {(stepCalBurned > 0 || workoutCalBurned > 0) && (
+          <div style={{ fontSize: 11, color: "var(--text3)", textAlign: "center", margin: "8px 0 2px" }}>
+            Burned: {stepCalBurned} kcal (steps) + {workoutCalBurned} kcal (workouts)
+          </div>
+        )}
+
+        <div className={`net-banner ${netClass}`} style={{ marginTop: 10 }}>
           <div>
             <div className={`net-label ${netClass}`}>
               {isZero ? "Perfectly balanced" : isDeficit ? "Calorie Deficit ↓" : "Calorie Surplus ↑"}
@@ -94,43 +356,306 @@ export default function FoodTab({ currentUser }) {
         </div>
       </div>
 
+      {/* Steps Today Card */}
       <div className="steps-card">
         <div className="steps-icon">◉</div>
         <div className="steps-content">
-          <div className="steps-label">Steps {isToday ? "today" : fmtDate(viewDay)}</div>
+          <div className="steps-label">Walking Steps {isToday ? "today" : fmtDate(viewDay)}</div>
           <div className="steps-row">
-            <input className="steps-inp" type="number" placeholder="0" value={foodSteps}
-              onChange={e => updateFoodSteps(e.target.value)} readOnly={!isToday} />
-            <span className="steps-burned">≈ {burned} kcal burned</span>
+            <input 
+              className="steps-inp" 
+              type="number" 
+              placeholder="0" 
+              value={foodSteps}
+              onChange={e => updateFoodSteps(e.target.value)} 
+              readOnly={!isToday} 
+            />
+            <span className="steps-burned">≈ {stepCalBurned} kcal burned</span>
           </div>
         </div>
       </div>
 
+      {/* Workouts & Activity Section (Directly Below Steps) */}
+      <div className="workout-section">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <div>
+            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 500, color: "var(--text)" }}>
+              Workouts & Exercise
+            </div>
+            <div style={{ fontSize: 11, color: "var(--text2)" }}>
+              Gym, Cardio, Sports & Active Burn ({workoutCalBurned} kcal burned)
+            </div>
+          </div>
+          {isToday && (
+            <button 
+              className="add-btn" 
+              style={{ padding: "6px 14px", fontSize: 12, borderRadius: 20 }}
+              onClick={() => setShowAddWorkout(v => !v)}
+            >
+              {showAddWorkout ? "✕ Close" : "+ Add Workout"}
+            </button>
+          )}
+        </div>
+
+        {/* Add Workout Form with Dual Mode */}
+        {showAddWorkout && isToday && (
+          <div style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 12, padding: 16, marginBottom: 14 }}>
+            <div className="tab-mode-selector">
+              <button 
+                className={`tab-mode-btn ${workoutMode === "manual" ? "active" : ""}`}
+                onClick={() => setWorkoutMode("manual")}
+              >
+                ✏️ Manual Log
+              </button>
+              <button 
+                className={`tab-mode-btn ${workoutMode === "ai" ? "active" : ""}`}
+                onClick={() => setWorkoutMode("ai")}
+              >
+                ✦ AI Burn Predictor
+              </button>
+            </div>
+
+            {workoutMode === "manual" ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr", gap: 10 }}>
+                  <div className="form-field">
+                    <label>Activity Type</label>
+                    <select className="inp" value={wType} onChange={e => setWType(e.target.value)}>
+                      {WORKOUT_TYPES.map(t => (
+                        <option key={t.id} value={t.label}>{t.icon} {t.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-field">
+                    <label>Duration (mins)</label>
+                    <input className="inp" type="number" placeholder="45" value={wDuration} onChange={e => setWDuration(e.target.value)} />
+                  </div>
+                  <div className="form-field">
+                    <label>Calories Burned</label>
+                    <input className="inp" type="number" placeholder="e.g. 250" value={wCal} onChange={e => setWCal(e.target.value)} onKeyDown={e => e.key === "Enter" && addWorkoutManual()} />
+                  </div>
+                </div>
+                <div className="form-field">
+                  <label>Workout Note / Routine (Optional)</label>
+                  <input className="inp" placeholder="e.g. Chest & Triceps / 5km Treadmill Run" value={wName} onChange={e => setWName(e.target.value)} onKeyDown={e => e.key === "Enter" && addWorkoutManual()} />
+                </div>
+                <button className="add-btn" style={{ width: "100%", marginTop: 4 }} onClick={addWorkoutManual}>
+                  + Log Workout ({wCal || 0} kcal)
+                </button>
+              </div>
+            ) : (
+              <div>
+                <div className="form-field">
+                  <label>Describe Workout & Routine</label>
+                  <textarea 
+                    className="inp" 
+                    placeholder='e.g. "Heavy leg day squatting and lunges for 45 mins" or "30 mins HIIT running interval"'
+                    value={wAiQuery} 
+                    onChange={e => setWAiQuery(e.target.value)}
+                    style={{ minHeight: 60, resize: "vertical" }}
+                  />
+                </div>
+                <div style={{ display: "flex", gap: 10, marginTop: 8, alignItems: "flex-end" }}>
+                  <div className="form-field" style={{ flex: 1 }}>
+                    <label>Duration (mins)</label>
+                    <input className="inp" type="number" value={wDuration} onChange={e => setWDuration(e.target.value)} />
+                  </div>
+                  <button 
+                    className="add-btn" 
+                    style={{ flex: 2, height: 42, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }} 
+                    onClick={handleEstimateWorkoutAi}
+                    disabled={wAiLoading}
+                  >
+                    {wAiLoading ? "Analyzing Metabolic Burn..." : "✦ Predict Calorie Burn"}
+                  </button>
+                </div>
+
+                {wAiErr && <div className="err" style={{ marginTop: 8 }}>{wAiErr}</div>}
+
+                {/* AI Workout Result Preview */}
+                {wAiResult && (
+                  <div className="ai-result-box">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>
+                          {wAiResult.workoutName} <span className="ai-badge">✦ AI Calculated</span>
+                        </div>
+                        <div style={{ fontSize: 12, color: "var(--text2)", marginTop: 2 }}>
+                          {wAiResult.duration} mins • Intensity: <strong>{wAiResult.intensity}</strong>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 22, fontWeight: 600, color: "var(--green)" }}>
+                        −{wAiResult.caloriesBurned} <span style={{ fontSize: 13, color: "var(--text2)" }}>kcal</span>
+                      </div>
+                    </div>
+                    {wAiResult.explanation && (
+                      <div style={{ fontSize: 12, color: "var(--text2)", marginTop: 6, fontStyle: "italic", borderTop: "1px dashed var(--border)", paddingTop: 6 }}>
+                        💡 {wAiResult.explanation}
+                      </div>
+                    )}
+                    <button className="add-btn" style={{ width: "100%", marginTop: 12 }} onClick={addWorkoutFromAi}>
+                      ✓ Add {wAiResult.caloriesBurned} kcal Burn to Log
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Workout Log List */}
+        {workoutLog.length === 0 ? (
+          <div style={{ fontSize: 12, color: "var(--text3)", textAlign: "center", padding: "8px 0" }}>
+            No workouts logged {isToday ? "yet today" : "on this day"}.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {workoutLog.map(w => (
+              <div key={w.id} className="workout-item">
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 18 }}>⚡</span>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text)" }}>
+                      {w.name} {w.source === "ai" && <span className="ai-badge">✦ AI</span>}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--text2)" }}>
+                      {w.duration ? `${w.duration} mins` : "Workout"} • {w.type || "Exercise"}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--green)" }}>
+                    −{w.cal} kcal
+                  </div>
+                  {isToday && (
+                    <button className="del-btn" onClick={() => delWorkout(w.id)} title="Delete workout">×</button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Log Food Section with Dual Modes */}
       {isToday && (
         <>
-          <div className="section-title">Log Food</div>
-          <div className="add-form">
-            <div className="form-row">
-              <div className="form-field f-name">
-                <label>Food name</label>
-                <input className="inp" placeholder="e.g. Idli, Rice, Apple..." value={fName}
-                  onChange={e => setFName(e.target.value)} onKeyDown={e => e.key === "Enter" && addFood()} />
-              </div>
-              <div className="form-field f-num">
-                <label>Grams</label>
-                <input className="inp" type="number" placeholder="100g" value={fGrams} onChange={e => setFGrams(e.target.value)} />
-              </div>
-              <div className="form-field f-num">
-                <label>Calories</label>
-                <input className="inp" type="number" placeholder="kcal" value={fCal}
-                  onChange={e => setFCal(e.target.value)} onKeyDown={e => e.key === "Enter" && addFood()} />
-              </div>
-              <button className="add-btn" onClick={addFood}>+ Add</button>
+          <div className="section-title">Log Food & Nutrition</div>
+          
+          <div className="add-form" style={{ marginBottom: 20 }}>
+            {/* Mode Switcher */}
+            <div className="tab-mode-selector">
+              <button 
+                className={`tab-mode-btn ${foodMode === "manual" ? "active" : ""}`}
+                onClick={() => setFoodMode("manual")}
+              >
+                ✏️ Manual Calorie Entry
+              </button>
+              <button 
+                className={`tab-mode-btn ${foodMode === "ai" ? "active" : ""}`}
+                onClick={() => setFoodMode("ai")}
+              >
+                ✦ AI Calorie Estimator
+              </button>
             </div>
+
+            {foodMode === "manual" ? (
+              <div className="form-row">
+                <div className="form-field f-name">
+                  <label>Food name</label>
+                  <input 
+                    className="inp" 
+                    placeholder="e.g. Idli, Rice, Apple, Chicken..." 
+                    value={fName}
+                    onChange={e => setFName(e.target.value)} 
+                    onKeyDown={e => e.key === "Enter" && addFoodManual()} 
+                  />
+                </div>
+                <div className="form-field f-num">
+                  <label>Portion / Grams</label>
+                  <input className="inp" type="number" placeholder="100g" value={fGrams} onChange={e => setFGrams(e.target.value)} />
+                </div>
+                <div className="form-field f-num">
+                  <label>Calories (kcal)</label>
+                  <input 
+                    className="inp" 
+                    type="number" 
+                    placeholder="kcal" 
+                    value={fCal}
+                    onChange={e => setFCal(e.target.value)} 
+                    onKeyDown={e => e.key === "Enter" && addFoodManual()} 
+                  />
+                </div>
+                <button className="add-btn" onClick={addFoodManual}>+ Add</button>
+              </div>
+            ) : (
+              <div>
+                <div className="form-field">
+                  <label>What did you eat & approx amount?</label>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <input 
+                      className="inp" 
+                      placeholder='e.g. "2 butter naans and 1 bowl paneer butter masala" or "1 chicken sandwich"'
+                      value={foodAiQuery}
+                      onChange={e => setFoodAiQuery(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && handleEstimateFoodAi()}
+                      style={{ flex: 1 }}
+                    />
+                    <button 
+                      className="add-btn" 
+                      style={{ minWidth: 140, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                      onClick={handleEstimateFoodAi}
+                      disabled={foodAiLoading}
+                    >
+                      {foodAiLoading ? "Estimating..." : "✦ Estimate Calories"}
+                    </button>
+                  </div>
+                </div>
+
+                {foodAiErr && <div className="err" style={{ marginTop: 8 }}>{foodAiErr}</div>}
+
+                {/* AI Food Result Preview */}
+                {foodAiResult && (
+                  <div className="ai-result-box">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>
+                          {foodAiResult.name} <span className="ai-badge">✦ AI Calculated</span>
+                        </div>
+                        {foodAiResult.portion && (
+                          <div style={{ fontSize: 12, color: "var(--text2)", marginTop: 2 }}>
+                            Portion: <strong>{foodAiResult.portion}</strong>
+                          </div>
+                        )}
+                        {(foodAiResult.protein || foodAiResult.carbs || foodAiResult.fat) && (
+                          <div style={{ fontSize: 11, color: "var(--accent)", marginTop: 4 }}>
+                            {[foodAiResult.protein ? `Protein: ${foodAiResult.protein}` : null, foodAiResult.carbs ? `Carbs: ${foodAiResult.carbs}` : null, foodAiResult.fat ? `Fat: ${foodAiResult.fat}` : null].filter(Boolean).join(" • ")}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 22, fontWeight: 600, color: "var(--text)" }}>
+                        {foodAiResult.calories} <span style={{ fontSize: 13, color: "var(--text2)" }}>kcal</span>
+                      </div>
+                    </div>
+
+                    {foodAiResult.explanation && (
+                      <div style={{ fontSize: 12, color: "var(--text2)", marginTop: 6, fontStyle: "italic", borderTop: "1px dashed var(--border)", paddingTop: 6 }}>
+                        💡 {foodAiResult.explanation}
+                      </div>
+                    )}
+
+                    <button className="add-btn" style={{ width: "100%", marginTop: 12 }} onClick={addFoodFromAi}>
+                      ✓ Add {foodAiResult.calories} kcal to Food Log
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </>
       )}
 
+      {/* Food Log List */}
       <div className="section-title">Food Log <small>{fmtDate(viewDay)}</small></div>
       {foodLog.length === 0 && (
         <div className="empty">No food logged {isToday ? "yet today" : "on this day"}</div>
@@ -138,8 +663,11 @@ export default function FoodTab({ currentUser }) {
       {foodLog.map(f => (
         <div key={f.id} className="food-item">
           <div className="food-dot" />
-          <div className="food-name">{f.name}</div>
-          {f.grams && <div className="food-meta">{f.grams}g</div>}
+          <div className="food-name">
+            {f.name} {f.source === "ai" && <span className="ai-badge">✦ AI</span>}
+            {f.macros && <div style={{ fontSize: 10, color: "var(--text3)", marginTop: 2 }}>{f.macros}</div>}
+          </div>
+          {f.grams && <div className="food-meta">{typeof f.grams === "number" ? `${f.grams}g` : f.grams}</div>}
           <div className="food-cal">{f.cal} kcal</div>
           {isToday && <button className="del-btn" onClick={() => delFood(f.id)}>×</button>}
         </div>
