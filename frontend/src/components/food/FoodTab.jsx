@@ -31,6 +31,11 @@ export default function FoodTab({ currentUser }) {
   const [fName, setFName] = useState("");
   const [fGrams, setFGrams] = useState("");
   const [fCal, setFCal] = useState("");
+  const [fProtein, setFProtein] = useState("");
+  const [fCarbs, setFCarbs] = useState("");
+  const [fFat, setFFat] = useState("");
+  const [fFiber, setFFiber] = useState("");
+  const [showManualMacros, setShowManualMacros] = useState(false);
   
   const [foodAiQuery, setFoodAiQuery] = useState("");
   const [foodAiGrams, setFoodAiGrams] = useState("");
@@ -65,8 +70,13 @@ export default function FoodTab({ currentUser }) {
     setFoodSteps(steps !== null ? String(steps) : "");
   }, [userId, viewDay]);
 
-  // Calorie Calculations
+  // Calorie & Macronutrient Calculations
   const totalEaten = foodLog.reduce((s, f) => s + (Number(f.cal) || 0), 0);
+  const totalProtein = foodLog.reduce((s, f) => s + (Number(f.protein) || 0), 0);
+  const totalCarbs = foodLog.reduce((s, f) => s + (Number(f.carbs) || 0), 0);
+  const totalFat = foodLog.reduce((s, f) => s + (Number(f.fat) || 0), 0);
+  const totalFiber = foodLog.reduce((s, f) => s + (Number(f.fiber) || 0), 0);
+
   const stepCalBurned = stepsBurned(+foodSteps || 0);
   const workoutCalBurned = workoutLog.reduce((s, w) => s + (Number(w.cal) || 0), 0);
   const totalBurned = stepCalBurned + workoutCalBurned;
@@ -85,12 +95,17 @@ export default function FoodTab({ currentUser }) {
         name: fName.trim(),
         grams: +fGrams || null,
         cal: Math.round(+fCal),
+        protein: Math.round(+fProtein) || 0,
+        carbs: Math.round(+fCarbs) || 0,
+        fat: Math.round(+fFat) || 0,
+        fiber: Math.round(+fFiber) || 0,
         source: "manual"
       }
     ];
     setFoodLog(updated);
     lsSet(`food_${userId}_${viewDay}`, updated);
     setFName(""); setFGrams(""); setFCal("");
+    setFProtein(""); setFCarbs(""); setFFat(""); setFFiber("");
   };
 
   const handleEstimateFoodAi = async () => {
@@ -138,10 +153,13 @@ export default function FoodTab({ currentUser }) {
       {
         id: Date.now(),
         name: foodAiResult.name || foodAiQuery.trim(),
-        grams: foodAiResult.portion || foodAiGrams.trim() || null,
-        cal: Math.round(foodAiResult.calories || 200),
-        source: "ai",
-        macros: [foodAiResult.protein ? `P: ${foodAiResult.protein}` : null, foodAiResult.carbs ? `C: ${foodAiResult.carbs}` : null, foodAiResult.fat ? `F: ${foodAiResult.fat}` : null].filter(Boolean).join(" | ")
+        grams: foodAiResult.portion || (foodAiGrams ? `${foodAiGrams}g` : null),
+        cal: Math.round(Number(foodAiResult.calories) || 200),
+        protein: Math.round(Number(foodAiResult.protein) || 0),
+        carbs: Math.round(Number(foodAiResult.carbs) || 0),
+        fat: Math.round(Number(foodAiResult.fat) || 0),
+        fiber: Math.round(Number(foodAiResult.fiber) || 0),
+        source: "ai"
       }
     ];
     setFoodLog(updated);
@@ -320,6 +338,111 @@ export default function FoodTab({ currentUser }) {
           text-transform: uppercase;
           letter-spacing: 0.05em;
         }
+        .macro-summary-card {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          padding: 16px 18px;
+          margin-top: 14px;
+          box-shadow: var(--shadow);
+        }
+        .macro-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 12px;
+        }
+        .macro-title {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--text);
+          letter-spacing: 0.02em;
+        }
+        .macro-sub {
+          font-size: 10px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--text2);
+        }
+        .macro-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 8px;
+        }
+        .macro-chip {
+          background: var(--bg);
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          padding: 10px 8px;
+          text-align: center;
+          transition: transform 0.15s ease;
+        }
+        .macro-chip:hover {
+          transform: translateY(-1px);
+        }
+        .macro-chip-top {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
+          font-size: 10px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--text2);
+          margin-bottom: 4px;
+        }
+        .macro-chip-val {
+          font-size: 16px;
+          font-weight: 600;
+          color: var(--text);
+        }
+        .macro-chip-val span {
+          font-size: 10px;
+          font-weight: 400;
+          color: var(--text2);
+          margin-left: 2px;
+        }
+        .macro-chip.protein { border-left: 3px solid #6495ed; }
+        .macro-chip.carbs { border-left: 3px solid #e5a93b; }
+        .macro-chip.fat { border-left: 3px solid #e06c75; }
+        .macro-chip.fiber { border-left: 3px solid #7a9b7a; }
+
+        .macro-bar-wrap {
+          margin-top: 12px;
+          background: var(--bg);
+          border-radius: 6px;
+          padding: 2px;
+          border: 1px solid var(--border);
+        }
+        .macro-bar-track {
+          display: flex;
+          height: 6px;
+          border-radius: 4px;
+          overflow: hidden;
+          gap: 2px;
+        }
+        .macro-bar-seg.p { background: #6495ed; }
+        .macro-bar-seg.c { background: #e5a93b; }
+        .macro-bar-seg.f { background: #e06c75; }
+        .macro-bar-seg.fib { background: #7a9b7a; }
+
+        .food-macros-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+          margin-top: 4px;
+        }
+        .m-pill {
+          font-size: 10px;
+          padding: 2px 6px;
+          border-radius: 6px;
+          font-weight: 500;
+          letter-spacing: 0.02em;
+        }
+        .m-pill.p { background: rgba(100, 149, 237, 0.12); color: #6495ed; }
+        .m-pill.c { background: rgba(229, 169, 59, 0.12); color: #e5a93b; }
+        .m-pill.f { background: rgba(224, 108, 117, 0.12); color: #e06c75; }
+        .m-pill.fib { background: rgba(122, 155, 122, 0.15); color: #7a9b7a; }
       `}</style>
 
       {/* Date Navigation */}
@@ -370,6 +493,60 @@ export default function FoodTab({ currentUser }) {
           </div>
           <div className={`net-num ${netClass}`}>{isDeficit ? "−" : "+"}{Math.abs(netCal)}</div>
         </div>
+      </div>
+
+      {/* Daily Macronutrients Breakdown Card */}
+      <div className="macro-summary-card">
+        <div className="macro-header">
+          <span className="macro-title">Daily Macronutrients</span>
+          <span className="macro-sub">Protein • Carbs • Fats • Fiber</span>
+        </div>
+
+        <div className="macro-grid">
+          <div className="macro-chip protein">
+            <div className="macro-chip-top">
+              <span>🥩</span>
+              <span>Protein</span>
+            </div>
+            <div className="macro-chip-val">{totalProtein}<span>g</span></div>
+          </div>
+
+          <div className="macro-chip carbs">
+            <div className="macro-chip-top">
+              <span>🍚</span>
+              <span>Carbs</span>
+            </div>
+            <div className="macro-chip-val">{totalCarbs}<span>g</span></div>
+          </div>
+
+          <div className="macro-chip fat">
+            <div className="macro-chip-top">
+              <span>🥑</span>
+              <span>Fats</span>
+            </div>
+            <div className="macro-chip-val">{totalFat}<span>g</span></div>
+          </div>
+
+          <div className="macro-chip fiber">
+            <div className="macro-chip-top">
+              <span>🥦</span>
+              <span>Fiber</span>
+            </div>
+            <div className="macro-chip-val">{totalFiber}<span>g</span></div>
+          </div>
+        </div>
+
+        {/* Visual Macro Proportions Bar */}
+        {(totalProtein > 0 || totalCarbs > 0 || totalFat > 0 || totalFiber > 0) && (
+          <div className="macro-bar-wrap">
+            <div className="macro-bar-track">
+              {totalProtein > 0 && <div className="macro-bar-seg p" style={{ flex: totalProtein }} title={`Protein: ${totalProtein}g`} />}
+              {totalCarbs > 0 && <div className="macro-bar-seg c" style={{ flex: totalCarbs }} title={`Carbs: ${totalCarbs}g`} />}
+              {totalFat > 0 && <div className="macro-bar-seg f" style={{ flex: totalFat }} title={`Carbs: ${totalFat}g`} />}
+              {totalFiber > 0 && <div className="macro-bar-seg fib" style={{ flex: totalFiber }} title={`Fiber: ${totalFiber}g`} />}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Steps Today Card */}
@@ -592,33 +769,67 @@ export default function FoodTab({ currentUser }) {
             </div>
 
             {foodMode === "manual" ? (
-              <div className="form-row">
-                <div className="form-field f-name">
-                  <label>Food name</label>
-                  <input 
-                    className="inp" 
-                    placeholder="e.g. Idli, Rice, Apple, Chicken..." 
-                    value={fName}
-                    onChange={e => setFName(e.target.value)} 
-                    onKeyDown={e => e.key === "Enter" && addFoodManual()} 
-                  />
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div className="form-row">
+                  <div className="form-field f-name">
+                    <label>Food name</label>
+                    <input 
+                      className="inp" 
+                      placeholder="e.g. Idli, Rice, Apple, Chicken..." 
+                      value={fName}
+                      onChange={e => setFName(e.target.value)} 
+                      onKeyDown={e => e.key === "Enter" && addFoodManual()} 
+                    />
+                  </div>
+                  <div className="form-field f-num">
+                    <label>Portion / Grams</label>
+                    <input className="inp" type="number" placeholder="100g" value={fGrams} onChange={e => setFGrams(e.target.value)} />
+                  </div>
+                  <div className="form-field f-num">
+                    <label>Calories (kcal)</label>
+                    <input 
+                      className="inp" 
+                      type="number" 
+                      placeholder="kcal" 
+                      value={fCal}
+                      onChange={e => setFCal(e.target.value)} 
+                      onKeyDown={e => e.key === "Enter" && addFoodManual()} 
+                    />
+                  </div>
+                  <button className="add-btn" onClick={addFoodManual}>+ Add</button>
                 </div>
-                <div className="form-field f-num">
-                  <label>Portion / Grams</label>
-                  <input className="inp" type="number" placeholder="100g" value={fGrams} onChange={e => setFGrams(e.target.value)} />
+
+                {/* Optional Manual Macros Expand/Toggle */}
+                <div>
+                  <button 
+                    type="button"
+                    style={{ background: "none", border: "none", color: "var(--accent)", fontSize: 11, cursor: "pointer", padding: "2px 0", display: "inline-flex", alignItems: "center", gap: 4 }}
+                    onClick={() => setShowManualMacros(v => !v)}
+                  >
+                    {showManualMacros ? "▼ Hide optional macronutrients" : "▶ + Add macronutrients (Protein, Carbs, Fats, Fiber)"}
+                  </button>
+
+                  {showManualMacros && (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginTop: 8, background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 10, padding: 10 }}>
+                      <div className="form-field">
+                        <label>🥩 Protein (g)</label>
+                        <input className="inp" type="number" placeholder="0" value={fProtein} onChange={e => setFProtein(e.target.value)} />
+                      </div>
+                      <div className="form-field">
+                        <label>🍚 Carbs (g)</label>
+                        <input className="inp" type="number" placeholder="0" value={fCarbs} onChange={e => setFCarbs(e.target.value)} />
+                      </div>
+                      <div className="form-field">
+                        <label>🥑 Fats (g)</label>
+                        <input className="inp" type="number" placeholder="0" value={fFat} onChange={e => setFFat(e.target.value)} />
+                      </div>
+                      <div className="form-field">
+                        <label>🥦 Fiber (g)</label>
+                        <input className="inp" type="number" placeholder="0" value={fFiber} onChange={e => setFFiber(e.target.value)} />
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="form-field f-num">
-                  <label>Calories (kcal)</label>
-                  <input 
-                    className="inp" 
-                    type="number" 
-                    placeholder="kcal" 
-                    value={fCal}
-                    onChange={e => setFCal(e.target.value)} 
-                    onKeyDown={e => e.key === "Enter" && addFoodManual()} 
-                  />
-                </div>
-                <button className="add-btn" onClick={addFoodManual}>+ Add</button>
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -669,11 +880,12 @@ export default function FoodTab({ currentUser }) {
                             Portion: <strong>{foodAiResult.portion}</strong>
                           </div>
                         )}
-                        {(foodAiResult.protein || foodAiResult.carbs || foodAiResult.fat) && (
-                          <div style={{ fontSize: 11, color: "var(--accent)", marginTop: 4 }}>
-                            {[foodAiResult.protein ? `Protein: ${foodAiResult.protein}` : null, foodAiResult.carbs ? `Carbs: ${foodAiResult.carbs}` : null, foodAiResult.fat ? `Fat: ${foodAiResult.fat}` : null].filter(Boolean).join(" • ")}
-                          </div>
-                        )}
+                        <div className="food-macros-row" style={{ marginTop: 6 }}>
+                          <span className="m-pill p">🥩 Protein: {foodAiResult.protein || 0}g</span>
+                          <span className="m-pill c">🍚 Carbs: {foodAiResult.carbs || 0}g</span>
+                          <span className="m-pill f">🥑 Fat: {foodAiResult.fat || 0}g</span>
+                          <span className="m-pill fib">🥦 Fiber: {foodAiResult.fiber || 0}g</span>
+                        </div>
                       </div>
                       <div style={{ fontSize: 22, fontWeight: 600, color: "var(--text)" }}>
                         {foodAiResult.calories} <span style={{ fontSize: 13, color: "var(--text2)" }}>kcal</span>
@@ -687,7 +899,7 @@ export default function FoodTab({ currentUser }) {
                     )}
 
                     <button className="add-btn" style={{ width: "100%", marginTop: 12 }} onClick={addFoodFromAi}>
-                      ✓ Add {foodAiResult.calories} kcal to Food Log
+                      ✓ Add {foodAiResult.calories} kcal & Macros to Food Log
                     </button>
                   </div>
                 )}
@@ -706,8 +918,19 @@ export default function FoodTab({ currentUser }) {
         <div key={f.id} className="food-item">
           <div className="food-dot" />
           <div className="food-name">
-            {f.name} {f.source === "ai" && <span className="ai-badge">✦ AI</span>}
-            {f.macros && <div style={{ fontSize: 10, color: "var(--text3)", marginTop: 2 }}>{f.macros}</div>}
+            <div style={{ fontWeight: 500, color: "var(--text)" }}>
+              {f.name} {f.source === "ai" && <span className="ai-badge">✦ AI</span>}
+            </div>
+            {(f.protein > 0 || f.carbs > 0 || f.fat > 0 || f.fiber > 0) ? (
+              <div className="food-macros-row">
+                {f.protein > 0 && <span className="m-pill p">🥩 {f.protein}g P</span>}
+                {f.carbs > 0 && <span className="m-pill c">🍚 {f.carbs}g C</span>}
+                {f.fat > 0 && <span className="m-pill f">🥑 {f.fat}g F</span>}
+                {f.fiber > 0 && <span className="m-pill fib">🥦 {f.fiber}g Fib</span>}
+              </div>
+            ) : f.macros ? (
+              <div style={{ fontSize: 10, color: "var(--text3)", marginTop: 2 }}>{f.macros}</div>
+            ) : null}
           </div>
           {f.grams && <div className="food-meta">{typeof f.grams === "number" ? `${f.grams}g` : f.grams}</div>}
           <div className="food-cal">{f.cal} kcal</div>

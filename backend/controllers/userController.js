@@ -357,7 +357,10 @@ exports.estimateFoodCalories = async (req, res) => {
         name: foodName,
         calories: 250,
         portion: portionContext,
-        macros: "",
+        protein: 10,
+        carbs: 30,
+        fat: 8,
+        fiber: 3,
         explanation: "Approximate estimate based on standard portion.",
         fallback: true
       });
@@ -367,57 +370,61 @@ exports.estimateFoodCalories = async (req, res) => {
 User ate: "${foodName}"
 Portion / Grams specified: "${portionContext}"
 
-Analyze the food item and exact weight/portion size. Estimate the approximate total calories and macronutrient profile.
+Analyze the food item and exact weight/portion size. Estimate the approximate total calories and macronutrient breakdown (protein, carbs, fats, and dietary fiber in grams).
 Respond ONLY with a JSON object in this exact schema, without any conversational preamble or markdown:
 {
   "name": "Concise food title e.g. Paneer Butter Masala",
   "portion": "${portionContext}",
   "calories": 320,
-  "protein": "12g",
-  "carbs": "14g",
-  "fat": "22g",
-  "explanation": "Short 1-sentence nutritional breakdown referencing the portion/grams."
+  "protein": 14,
+  "carbs": 18,
+  "fat": 22,
+  "fiber": 4,
+  "explanation": "Short 1-sentence nutritional breakdown referencing the portion/grams and key macros."
 }`;
 
     const text = await callAI(prompt, true);
 
+    const parseNum = (val, def = 0) => {
+      if (val === undefined || val === null) return def;
+      const clean = String(val).replace(/[^0-9.]/g, "");
+      const num = Number(clean);
+      return isNaN(num) ? def : Math.round(num);
+    };
+
     try {
+      let parsed = null;
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        if (parsed.calories) {
-          return res.json({
-            name: parsed.name || foodName,
-            portion: parsed.portion || portionContext,
-            calories: Math.round(Number(parsed.calories)),
-            protein: parsed.protein || "",
-            carbs: parsed.carbs || "",
-            fat: parsed.fat || "",
-            explanation: parsed.explanation || "AI-estimated nutritional value.",
-            fallback: false
-          });
-        }
+        parsed = JSON.parse(jsonMatch[0]);
+      } else {
+        const cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
+        parsed = JSON.parse(cleaned);
       }
 
-      const cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
-      const parsed = JSON.parse(cleaned);
-      return res.json({
-        name: parsed.name || foodName,
-        portion: parsed.portion || portionContext,
-        calories: Math.round(Number(parsed.calories || 250)),
-        protein: parsed.protein || "",
-        carbs: parsed.carbs || "",
-        fat: parsed.fat || "",
-        explanation: parsed.explanation || "AI-estimated nutritional value.",
-        fallback: false
-      });
+      if (parsed) {
+        return res.json({
+          name: parsed.name || foodName,
+          portion: parsed.portion || portionContext,
+          calories: parseNum(parsed.calories, 250),
+          protein: parseNum(parsed.protein, 0),
+          carbs: parseNum(parsed.carbs, 0),
+          fat: parseNum(parsed.fat, 0),
+          fiber: parseNum(parsed.fiber, 0),
+          explanation: parsed.explanation || "AI-estimated nutritional values.",
+          fallback: false
+        });
+      }
     } catch (parseErr) {
       console.error("estimateFoodCalories parse error:", parseErr.message, "Raw:", text);
       return res.json({
         name: foodName,
         calories: 250,
         portion: portionContext,
-        macros: "",
+        protein: 10,
+        carbs: 30,
+        fat: 8,
+        fiber: 3,
         explanation: "AI estimate based on portion specified.",
         fallback: true
       });
@@ -428,7 +435,10 @@ Respond ONLY with a JSON object in this exact schema, without any conversational
       name: req.body?.query || "Food Item",
       calories: 250,
       portion: req.body?.grams || "1 serving",
-      macros: "",
+      protein: 10,
+      carbs: 30,
+      fat: 8,
+      fiber: 3,
       explanation: "Standard portion estimation.",
       fallback: true
     });
@@ -448,90 +458,97 @@ exports.estimateWorkoutCalories = async (req, res) => {
     }
 
     const userId = req.user.id;
-    const [rows] = await db.query("SELECT weight, gender FROM users WHERE id = ?", [userId]).catch(() => [[]]);
+    // Fetch all 4 physiological factors: weight, height, age, and gender
+    const [rows] = await db.query("SELECT weight, height, age, gender FROM users WHERE id = ?", [userId]).catch(() => [[]]);
     const user = rows[0] || {};
     const weightKg = Number(user.weight) || 70;
+    const heightCm = Number(user.height) || 170;
+    const ageYrs = Number(user.age) || 25;
     const gender = user.gender || "male";
     const durMins = Math.max(1, Number(duration) || 30);
 
-    if (!process.env.GROQ_API_KEY && !process.env.GEMINI_API_KEY) {
-      // Heuristic fallback MET calculation based on activity
-      let met = 5.0;
-      const lower = activityName.toLowerCase();
-      if (lower.includes("run") || lower.includes("jog")) met = 8.5;
-      else if (lower.includes("walk")) met = 3.8;
-      else if (lower.includes("cycl") || lower.includes("bike")) met = 7.0;
-      else if (lower.includes("swim")) met = 7.0;
-      else if (lower.includes("hiit")) met = 8.0;
-      else if (lower.includes("yoga")) met = 3.0;
+    // Physiological baseline BMR computation
+    let bmr = 10 * weightKg + 6.25 * heightCm - 5 * ageYrs + (gender === "female" ? -161 : 5);
+    const bmrPerMin = Math.max(0.8, bmr / 1440);
 
-      const approxBurn = Math.round((met * 3.5 * weightKg / 200) * durMins);
+    let met = 5.0;
+    const lower = activityName.toLowerCase();
+    if (lower.includes("run") || lower.includes("jog")) met = 8.5;
+    else if (lower.includes("walk")) met = 3.8;
+    else if (lower.includes("cycl") || lower.includes("bike")) met = 7.0;
+    else if (lower.includes("swim")) met = 7.0;
+    else if (lower.includes("hiit")) met = 8.0;
+    else if (lower.includes("yoga")) met = 3.0;
+
+    const fallbackBurn = Math.round(met * bmrPerMin * durMins * 1.05);
+
+    if (!process.env.GROQ_API_KEY && !process.env.GEMINI_API_KEY) {
       return res.json({
         workoutName: activityName,
         duration: durMins,
-        caloriesBurned: approxBurn,
+        caloriesBurned: fallbackBurn,
         intensity: met >= 7 ? "High" : met >= 4.5 ? "Moderate" : "Light",
-        explanation: `Estimated ~${approxBurn} kcal based on MET formulas for ${weightKg}kg over ${durMins} mins.`,
+        explanation: `Estimated ~${fallbackBurn} kcal personalized for ${weightKg}kg, ${heightCm}cm, ${ageYrs}yo over ${durMins} mins.`,
         fallback: true
       });
     }
 
     const prompt = `You are an expert exercise physiologist AI.
-User Profile: Weight: ${weightKg} kg, Biological Sex: ${gender}.
-Activity Type: ${type}
-Workout Routine / Description: "${activityName}"
-Duration: ${durMins} minutes.
+User Physiological Profile:
+- Weight: ${weightKg} kg
+- Height: ${heightCm} cm
+- Age: ${ageYrs} years old
+- Biological Sex: ${gender}
 
-Calculate the estimated active calories burned for this individual during this workout based on physiological MET principles.
+Workout Details:
+- Activity Type: ${type}
+- Workout Description: "${activityName}"
+- Duration: ${durMins} minutes
+
+Using exercise physiology, accounting specifically for their body mass (${weightKg}kg), height (${heightCm}cm), age (${ageYrs} yrs), and biological sex (${gender}), calculate the estimated active calories burned during this session.
 Respond ONLY with a JSON object in this exact schema, without any conversational preamble or markdown:
 {
   "workoutName": "${activityName}",
   "duration": ${durMins},
   "caloriesBurned": 240,
   "intensity": "Moderate / High / Low",
-  "explanation": "Short 1-sentence physiological explanation referencing MET and caloric burn rate."
+  "explanation": "Short 1-sentence physiological explanation referencing MET and personalized metrics (weight, age, height)."
 }`;
 
     const text = await callAI(prompt, true);
 
     try {
+      let parsed = null;
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        if (parsed.caloriesBurned) {
-          return res.json({
-            workoutName: parsed.workoutName || activityName,
-            duration: Number(parsed.duration || durMins),
-            caloriesBurned: Math.round(Number(parsed.caloriesBurned)),
-            intensity: parsed.intensity || "Moderate",
-            explanation: parsed.explanation || `Estimated burn based on ${durMins} mins activity.`,
-            fallback: false
-          });
-        }
+        parsed = JSON.parse(jsonMatch[0]);
+      } else {
+        const cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
+        parsed = JSON.parse(cleaned);
       }
 
-      const cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
-      const parsed = JSON.parse(cleaned);
-      return res.json({
-        workoutName: parsed.workoutName || activityName,
-        duration: Number(parsed.duration || durMins),
-        caloriesBurned: Math.round(Number(parsed.caloriesBurned || 150)),
-        intensity: parsed.intensity || "Moderate",
-        explanation: parsed.explanation || "AI-estimated caloric expenditure.",
-        fallback: false
-      });
+      if (parsed && parsed.caloriesBurned) {
+        return res.json({
+          workoutName: parsed.workoutName || activityName,
+          duration: Number(parsed.duration || durMins),
+          caloriesBurned: Math.round(Number(parsed.caloriesBurned)),
+          intensity: parsed.intensity || "Moderate",
+          explanation: parsed.explanation || `Estimated burn personalized for ${weightKg}kg, ${heightCm}cm, ${ageYrs}yo over ${durMins} mins.`,
+          fallback: false
+        });
+      }
     } catch (parseErr) {
       console.error("estimateWorkoutCalories parse error:", parseErr.message, "Raw:", text);
-      const approxBurn = Math.round((5.5 * 3.5 * weightKg / 200) * durMins);
-      return res.json({
-        workoutName: activityName,
-        duration: durMins,
-        caloriesBurned: approxBurn,
-        intensity: "Moderate",
-        explanation: `Estimated ~${approxBurn} kcal based on MET formulas.`,
-        fallback: true
-      });
     }
+
+    return res.json({
+      workoutName: activityName,
+      duration: durMins,
+      caloriesBurned: fallbackBurn,
+      intensity: met >= 7 ? "High" : met >= 4.5 ? "Moderate" : "Light",
+      explanation: `Estimated ~${fallbackBurn} kcal based on MET formulas for ${weightKg}kg, ${heightCm}cm, ${ageYrs}yo.`,
+      fallback: true
+    });
   } catch (err) {
     console.error("estimateWorkoutCalories error:", err.message);
     return res.json({
