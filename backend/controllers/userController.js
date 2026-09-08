@@ -23,45 +23,74 @@ exports.updateProfile = async (req, res) => {
 
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
+const callGroq = async (apiKey, prompt, isJson = false) => {
+  const cleanKey = String(apiKey || "").trim().replace(/^["']|["']$/g, "");
+  if (!cleanKey) throw new Error("Empty Groq API Key");
+
+  const groqModels = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
+  let lastError = null;
+
+  for (const model of groqModels) {
+    try {
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${cleanKey}`
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: "system",
+              content: isJson
+                ? "You are a professional health and fitness AI assistant. Always respond in valid JSON format matching the requested schema."
+                : "You are a helpful, concise health and fitness AI assistant."
+            },
+            {
+              role: "user",
+              content: prompt
+            }
+          ],
+          response_format: isJson ? { type: "json_object" } : undefined,
+          temperature: 0.2,
+          max_tokens: 1024
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const content = data?.choices?.[0]?.message?.content;
+        if (content) return content.trim();
+      } else {
+        const errJson = await response.json().catch(() => ({}));
+        console.warn(`[Groq AI ${model} Error]`, response.status, errJson?.error?.message || response.statusText);
+        lastError = new Error(errJson?.error?.message || `Groq error ${response.status}`);
+      }
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  throw lastError || new Error("Failed to generate content using Groq API");
+};
+
 const callGemini = async (apiKey, prompt, isJson = false) => {
   const cleanKey = String(apiKey || "").trim().replace(/^["']|["']$/g, "");
   if (!cleanKey) throw new Error("Empty Gemini API Key");
 
-  // Step 1: Query Google to see exactly which models this API key has access to
-  let availableModelNames = [];
-  try {
-    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`);
-    if (listRes.ok) {
-      const listData = await listRes.json();
-      if (Array.isArray(listData?.models)) {
-        availableModelNames = listData.models
-          .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
-          .map(m => m.name.replace(/^models\//, ""));
-      }
-    } else {
-      const errBody = await listRes.json().catch(() => ({}));
-      console.log(`[Gemini AI Notice] Google Model List response: ${listRes.status} - ${errBody?.error?.message || "Check API Key permissions"}`);
-    }
-  } catch (e) {
-    console.log("[Gemini AI Notice] Could not list models:", e.message);
-  }
-
-  // Combine discovered models with candidate defaults
-  const modelsToTry = [
-    ...availableModelNames,
-    "gemini-1.5-flash",
+  const fastModels = [
     "gemini-2.0-flash",
-    "gemini-1.5-pro",
-    "gemini-1.0-pro",
-    "gemini-pro"
+    "gemini-1.5-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-1.5-pro"
   ];
-  const uniqueModels = [...new Set(modelsToTry)];
 
   const genAI = new GoogleGenerativeAI(cleanKey);
   let lastError = null;
 
-  // Step 2: Try via official SDK
-  for (const modelName of uniqueModels) {
+  // Step 1: Try ultra-fast models via official SDK directly
+  for (const modelName of fastModels) {
     try {
       const model = genAI.getGenerativeModel({
         model: modelName,
@@ -77,9 +106,9 @@ const callGemini = async (apiKey, prompt, isJson = false) => {
     }
   }
 
-  // Step 3: Direct REST fallback across v1beta & v1
+  // Step 2: Direct REST fallback across v1beta & v1
   for (const apiVersion of ["v1beta", "v1"]) {
-    for (const modelName of uniqueModels) {
+    for (const modelName of fastModels) {
       try {
         const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${modelName}:generateContent?key=${cleanKey}`;
         const response = await fetch(url, {
@@ -105,6 +134,26 @@ const callGemini = async (apiKey, prompt, isJson = false) => {
   throw lastError || new Error("Failed to generate content using Gemini API");
 };
 
+// Unified AI Caller: Prioritizes lightning-fast Groq with automatic Gemini fallback
+const callAI = async (prompt, isJson = false) => {
+  const groqKey = process.env.GROQ_API_KEY;
+  const geminiKey = process.env.GEMINI_API_KEY;
+
+  if (groqKey) {
+    try {
+      return await callGroq(groqKey, prompt, isJson);
+    } catch (groqErr) {
+      console.warn("[AI Notice] Groq call failed, falling back to Gemini:", groqErr.message);
+    }
+  }
+
+  if (geminiKey) {
+    return await callGemini(geminiKey, prompt, isJson);
+  }
+
+  throw new Error("No AI API keys configured (set GROQ_API_KEY or GEMINI_API_KEY)");
+};
+
 exports.getCalorieRecommendation = async (req, res) => {
   let fallbackCalories = 2000;
   let user = null;
@@ -116,7 +165,7 @@ exports.getCalorieRecommendation = async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ message: "User not found" });
     user = rows[0];
 
-    // Fallback deterministic calculation if Gemini fails or is missing
+    // Fallback deterministic calculation if AI fails or is missing
     if (user.weight && user.height && user.age) {
       // Mifflin-St Jeor Equation
       let bmr = 10 * user.weight + 6.25 * user.height - 5 * user.age;
@@ -128,8 +177,7 @@ exports.getCalorieRecommendation = async (req, res) => {
       else fallbackCalories = Math.round(tdee);
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
+    if (!process.env.GROQ_API_KEY && !process.env.GEMINI_API_KEY) {
       return res.json({
         dailyCalories: fallbackCalories,
         goal: user.goal || "maintain",
@@ -154,7 +202,7 @@ Respond ONLY with a JSON object in this exact schema, with no preamble or commen
   "explanation": "Brief 1-2 sentence explanation tailored to their goal and metabolic rate."
 }`;
 
-    const text = await callGemini(apiKey, prompt, true);
+    const text = await callAI(prompt, true);
 
     try {
       // 1. Try extracting the { ... } JSON block
@@ -205,17 +253,16 @@ exports.getHabitDescription = async (req, res) => {
     const { habitName } = req.body;
     if (!habitName) return res.status(400).json({ message: "Habit name is required" });
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
+    if (!process.env.GROQ_API_KEY && !process.env.GEMINI_API_KEY) {
       return res.json({ description: "Build a consistent routine." });
     }
 
     const prompt = `Write a short, motivating description for a daily habit called "${habitName}". Max 10 words. No quotes. Just the description.`;
-    const text = await callGemini(apiKey, prompt, false);
+    const text = await callAI(prompt, false);
 
     return res.json({ description: text });
   } catch (err) {
-    console.error("Gemini AI habit error:", err.message);
+    console.error("AI habit error:", err.message);
     return res.json({ description: "Build a consistent routine." });
   }
 };
@@ -230,8 +277,7 @@ exports.estimateFoodCalories = async (req, res) => {
     const foodName = query.trim();
     const portionContext = grams && String(grams).trim() ? String(grams).trim() : "standard serving";
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
+    if (!process.env.GROQ_API_KEY && !process.env.GEMINI_API_KEY) {
       return res.json({
         name: foodName,
         calories: 250,
@@ -258,7 +304,7 @@ Respond ONLY with a JSON object in this exact schema, without any conversational
   "explanation": "Short 1-sentence nutritional breakdown referencing the portion/grams."
 }`;
 
-    const text = await callGemini(apiKey, prompt, true);
+    const text = await callAI(prompt, true);
 
     try {
       const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -333,8 +379,7 @@ exports.estimateWorkoutCalories = async (req, res) => {
     const gender = user.gender || "male";
     const durMins = Math.max(1, Number(duration) || 30);
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
+    if (!process.env.GROQ_API_KEY && !process.env.GEMINI_API_KEY) {
       // Heuristic fallback MET calculation based on activity
       let met = 5.0;
       const lower = activityName.toLowerCase();
@@ -372,7 +417,7 @@ Respond ONLY with a JSON object in this exact schema, without any conversational
   "explanation": "Short 1-sentence physiological explanation referencing MET and caloric burn rate."
 }`;
 
-    const text = await callGemini(apiKey, prompt, true);
+    const text = await callAI(prompt, true);
 
     try {
       const jsonMatch = text.match(/\{[\s\S]*\}/);

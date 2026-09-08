@@ -68,7 +68,7 @@ function AddHabitPanel({ onAdd }) {
     <>
       <style>{aiDescCss}</style>
       <div className="add-habit-panel">
-        <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 17, fontWeight: 400, color: "var(--text)", marginBottom: 16, letterSpacing: "0.03em" }}>New Daily Habit</div>
+        <div className="section-title" style={{ fontSize: 16, marginBottom: 16 }}>New Daily Habit</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div>
             <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text2)", marginBottom: 5 }}>Habit Name</div>

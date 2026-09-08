@@ -395,7 +395,7 @@ export default function FoodTab({ currentUser }) {
       <div className="workout-section">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
           <div>
-            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, fontWeight: 500, color: "var(--text)" }}>
+            <div className="section-title" style={{ marginBottom: 2 }}>
               Workouts & Exercise
             </div>
             <div style={{ fontSize: 11, color: "var(--text2)" }}>
