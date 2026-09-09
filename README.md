@@ -7,7 +7,7 @@
     <a href="https://lifetracker-9s6f.onrender.com/"><img src="https://img.shields.io/badge/🚀%20Live%20Demo-lifetracker--9s6f.onrender.com-00B4D8?style=for-the-badge&logo=render&logoColor=white" alt="Live Demo" /></a>
     <a href="https://reactjs.org/"><img src="https://img.shields.io/badge/Frontend-React%2018%20%2B%20Vite-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React" /></a>
     <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Backend-Node.js%20%2B%20Express-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node.js" /></a>
-    <a href="https://www.postgresql.org/"><img src="https://img.shields.io/badge/Database-PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" /></a>
+    <a href="https://neon.tech/"><img src="https://img.shields.io/badge/Database-Neon%20Postgres-00E599?style=for-the-badge&logo=postgresql&logoColor=black" alt="Neon Postgres" /></a>
     <a href="https://groq.com/"><img src="https://img.shields.io/badge/AI%20LPU-Groq%20Cloud%20(Llama%203.3)-F55036?style=for-the-badge&logo=groq&logoColor=white" alt="Groq AI" /></a>
     <a href="https://deepmind.google/technologies/gemini/"><img src="https://img.shields.io/badge/Fallback%20AI-Google%20Gemini%202.0-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white" alt="Gemini AI" /></a>
   </p>
@@ -148,7 +148,7 @@ Engineered with a **Groq Cloud LPU AI Engine** (with dynamic discovery and autom
 
 ### Backend
 - **Node.js & Express.js** — RESTful API routing and business logic
-- **PostgreSQL (`pg`)** — Relational database with automatic schema migrations and connection pooling
+- **Neon Serverless PostgreSQL (`pg`)** — Scalable cloud relational database with SSL connection pooling and auto-schema migrations
 - **PDFKit** — Vector-based server-side PDF compilation
 - **Node-Cron** — Real-time recurring multi-timezone task scheduler
 - **Bcrypt.js & JWT** — Cryptographic password hashing and stateless token authentication
@@ -156,6 +156,7 @@ Engineered with a **Groq Cloud LPU AI Engine** (with dynamic discovery and autom
 ### AI & Cloud Infrastructure
 - **Groq Cloud LPU SDK / REST API** — Sub-second inference (`Llama 3.3 70B`, `Llama 3.1 8B`)
 - **Google Gemini SDK (`@google/generative-ai`)** — Dynamic multi-model failover (`gemini-2.0-flash`, `gemini-1.5-flash`)
+- **Neon Cloud Postgres** — Permanent serverless PostgreSQL database storage
 - **Vercel Serverless Microservice** — Cloud SMTP proxy for seamless Gmail delivery
 - **Render Web Services** — Persistent backend hosting
 - **Nodemailer** — Robust multi-provider email dispatch engine
@@ -240,7 +241,7 @@ Create a `.env` file in the `/backend` directory:
 ```env
 # Server Configuration
 PORT=5000
-DATABASE_URL=postgresql://username:password@hostname:5432/database_name
+DATABASE_URL=postgresql://neondb_owner:your_password@ep-xyz.aws.neon.tech/neondb?sslmode=require
 JWT_SECRET=your_super_secret_jwt_key_here
 
 # AI Engines (Groq Cloud LPU Primary + Google Gemini Fallback)
